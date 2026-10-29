@@ -1,0 +1,19 @@
+{
+  "name": "hexlords",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Turn-based fantasy strategy game in the spirit of Warlords (1990), for the browser and phones",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0",
+    "vitest": "^5.0.0"
+  }
+}

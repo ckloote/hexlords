@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Attack odds</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&amp;family=Source+Sans+3:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+a{color:#D4A94F}a:hover{color:#E8C27A}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #15171B; font-family: 'Source Sans 3', system-ui, sans-serif; color: #ECE7DC">
+
+<div style="position: absolute; left: 0; top: 96px; width: 390px; height: 748px; overflow: hidden">
+<div style="position: absolute; left: 0; top: -72px; width: 390px; height: 756px">
+<dc-import name="MapTerrain" hint-size="390px,756px"></dc-import>
+<svg width="390" height="756" viewBox="0 0 390 756" style="position: absolute; left: 0; top: 0" role="img" aria-label="Borin's Host next to Gravelmaw, which is marked as the attack target with 5 defenders">
+<g transform="translate(259.8 168)">
+<circle r="25" fill="none" stroke="#EE7466" stroke-width="3"/>
+<g transform="translate(18 -18)">
+<circle r="10" fill="#121317" stroke="#E8873F" stroke-width="2"/>
+<text y="4.5" text-anchor="middle" font-size="12" font-weight="700" fill="#FFF8EA">5</text>
+</g>
+</g>
+<g transform="translate(173.2 243)">
+<polygon points="0,-15 15,0 0,15 -15,0" fill="#E8873F" stroke="#121317" stroke-width="2"/>
+<text y="4.5" text-anchor="middle" font-size="13" font-weight="700" fill="#121317">4</text>
+</g>
+<g transform="translate(238.2 205.5)">
+<circle r="21" fill="none" stroke="#F2C55C" stroke-width="3"/>
+<rect x="-13" y="-13" width="26" height="26" rx="6" fill="#5B9BE6" stroke="#121317" stroke-width="2"/>
+<text y="4.5" text-anchor="middle" font-size="13" font-weight="700" fill="#0E1622">5</text>
+<g transform="translate(-12 -12)">
+<circle r="6.5" fill="#D4A94F" stroke="#121317" stroke-width="1.5"/>
+<path d="M0 -3.6l1.1 2.2 2.4 .3-1.8 1.6 .5 2.4L0 1.7l-2.2 1.2 .5-2.4-1.8-1.6 2.4-.3z" fill="#121317"/>
+</g>
+</g>
+</svg>
+</div>
+</div>
+
+<header style="position: absolute; left: 0; top: 0; width: 390px; height: 96px; box-sizing: border-box; padding: 4px 8px 0 16px; background: #15171B; border-bottom: 1px solid #2C3038; display: flex; flex-direction: column">
+<div style="height: 52px; display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 8px">
+<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#D4A94F" stroke="#8A6A2A" stroke-width="1.5"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="#8A6A2A" stroke-width="1.5"/></svg>
+<span style="font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums">230</span>
+<span style="font-size: 14px; font-weight: 600; color: #6CC28A">+18 per turn</span>
+</div>
+<div style="display: flex; align-items: baseline; gap: 4px">
+<span style="font-family: Cinzel, serif; font-size: 15px; font-weight: 700; letter-spacing: 0.04em">Turn 15</span>
+<span style="font-size: 13px; color: #B3AC9F">of 40</span>
+</div>
+<div style="display: flex; gap: 2px">
+<button aria-label="Map overlays" style="width: 44px; height: 44px; border: none; background: transparent; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ECE7DC" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg></button>
+<button aria-label="Menu" style="width: 44px; height: 44px; border: none; background: transparent; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ECE7DC" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+</div>
+</div>
+<div style="padding-right: 8px; display: flex; flex-direction: column; gap: 6px">
+<div style="position: relative; height: 8px">
+<div style="height: 8px; border-radius: 4px; overflow: hidden; display: flex; gap: 1px; background: #2C3038">
+<div style="width: 25%; background: #5B9BE6"></div>
+<div style="width: 33.3%; background: #E8873F"></div>
+<div style="width: 19.4%; background: #B48CE0"></div>
+<div style="width: 16.7%; background: #7FBF6A"></div>
+</div>
+<div style="position: absolute; left: 50%; top: -4px; width: 2px; height: 16px; background: #FFF8EA; border-radius: 1px"></div>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 12px; color: #B3AC9F">
+<span>You 45 · Orcs 60 · Horse 35 · Elves 30</span>
+<span>Win at 90</span>
+</div>
+</div>
+</header>
+
+<section aria-label="Attack odds" style="position: absolute; left: 0; bottom: 0; width: 390px; height: 556px; box-sizing: border-box; padding: 10px 16px 16px; background: #1E2127; border-radius: 16px 16px 0 0; box-shadow: 0 -6px 20px rgba(0,0,0,0.35); display: flex; flex-direction: column; gap: 12px">
+<div style="width: 36px; height: 4px; border-radius: 2px; background: #3A404B; align-self: center"></div>
+
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="flex: 1; display: flex; flex-direction: column">
+<span style="font-family: Cinzel, serif; font-size: 17px; font-weight: 700">Attack Gravelmaw</span>
+<span style="font-size: 13px; color: #B3AC9F">Orc city · 5 defenders · worth 10 gold a turn</span>
+</div>
+<button aria-label="Cancel attack" style="width: 44px; height: 44px; border: none; background: transparent; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B3AC9F" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
+
+<div style="display: flex; align-items: flex-end; justify-content: space-between">
+<div style="display: flex; flex-direction: column">
+<span style="font-size: 44px; line-height: 44px; font-weight: 700; color: #6CC28A; font-variant-numeric: tabular-nums">79%</span>
+<span style="font-size: 13px; color: #B3AC9F">chance to win</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px; align-items: flex-end">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #B3AC9F">Expected survivors</span>
+<span style="font-size: 15px"><span style="color: #B3AC9F">You keep</span> <span style="font-weight: 700">1.5 of 5</span></span>
+<span style="font-size: 15px"><span style="color: #B3AC9F">They keep</span> <span style="font-weight: 700">0.3 of 5</span></span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div role="img" aria-label="Win 79 percent, withdraw 7 percent, destroyed 14 percent" style="height: 10px; border-radius: 5px; overflow: hidden; display: flex; gap: 2px">
+<div style="width: 79%; background: #6CC28A"></div>
+<div style="width: 7%; background: #8A8F98"></div>
+<div style="width: 14%; background: #B8473B"></div>
+</div>
+<div style="display: flex; gap: 14px; font-size: 13px; color: #B3AC9F">
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #6CC28A"></span>Win 79%</span>
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #8A8F98"></span>Withdraw 7%</span>
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #B8473B"></span>Destroyed 14%</span>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<div style="background: #272B33; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700"><span>Your stack</span><span style="color: #6CC28A">+25%</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 13px; color: #B3AC9F"><span>Borin's leadership</span><span>+25%</span></div>
+</div>
+<div style="background: #272B33; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700"><span>Garrison</span><span>+0%</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 13px; color: #B3AC9F"><span>City walls</span><span>+25%</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 13px; color: #B3AC9F"><span>Your siege engine</span><span>−25%</span></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #B3AC9F">Fight order, weakest first</span>
+<div style="display: flex; align-items: center; gap: 4px">
+<span style="width: 38px; font-size: 12px; font-weight: 600; color: #5B9BE6">You</span>
+<div style="flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px">
+<div style="background: #15171B; border: 1px solid #3A404B; border-radius: 8px; padding: 3px 0; display: flex; flex-direction: column; align-items: center"><span style="font-size: 11px; color: #B3AC9F">Siege</span><span style="font-size: 14px; font-weight: 700">2.5</span></div>
+<div style="background: #15171B; border: 1px solid #3A404B; border-radius: 8px; padding: 3px 0; display: flex; flex-direction: column; align-items: center"><span style="font-size: 11px; color: #B3AC9F">Infantry</span><span style="font-size: 14px; font-weight: 700">5</span></div>
+<div style="background: #15171B; border: 1px solid #3A404B; border-radius: 8px; padding: 3px 0; display: flex; flex-direction: column; align-items: center"><span style="font-size: 11px; color: #EE7466">Wounded</span><span style="font-size: 14px; font-weight: 700">5</span></div>
+<div style="background: #15171B; border: 1px solid #3A404B; border-radius: 8px; padding: 3px 0; display: flex; flex-direction: column; align-items: center"><span style="font-size: 11px; color: #B3AC9F">Ironguard</span><span style="font-size: 14px; font-weight: 700">6.25</span></div>
+<div style="background: #15171B; border: 1px solid #3A404B; border-radius: 8px; padding: 3px 0; display: flex; flex-direction: column; align-items: center"><span style="font-size: 11px; color: #D4A94F">Borin</span><span style="font-size: 14px; font-weight: 700">6.25</span></div>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 4px">
+<span style="width: 38px; font-size: 12px; font-weight: 600; color: #E8873F">Them</span>
+<div style="flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px">
+<div style="background: #15171B; border: 1px solid #3A404B; border-radius: 8px; padding: 3px 0; display: flex; flex-direction: column; align-items: center"><span style="font-size: 11px; color: #B3AC9F">Militia</span><span style="font-size: 14px; font-weight: 700">2</span></div>
+<div style="background: #15171B; border: 1px solid #3A404B; border-radius: 8px; padding: 3px 0; display: flex; flex-direction: column; align-items: center"><span style="font-size: 11px; color: #B3AC9F">Militia</span><span style="font-size: 14px; font-weight: 700">2</span></div>
+<div style="background: #15171B; border: 1px solid #3A404B; border-radius: 8px; padding: 3px 0; display: flex; flex-direction: column; align-items: center"><span style="font-size: 11px; color: #B3AC9F">Infantry</span><span style="font-size: 14px; font-weight: 700">4</span></div>
+<div style="background: #15171B; border: 1px solid #3A404B; border-radius: 8px; padding: 3px 0; display: flex; flex-direction: column; align-items: center"><span style="font-size: 11px; color: #B3AC9F">Infantry</span><span style="font-size: 14px; font-weight: 700">4</span></div>
+<div style="background: #15171B; border: 1px solid #3A404B; border-radius: 8px; padding: 3px 0; display: flex; flex-direction: column; align-items: center"><span style="font-size: 11px; color: #B3AC9F">Troll</span><span style="font-size: 14px; font-weight: 700">5</span></div>
+</div>
+</div>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 15px; font-weight: 600">Withdraw if win chance drops below</span>
+<span style="font-size: 12px; color: #B3AC9F">Checked after each duel. Their fastest unit strikes once as you leave.</span>
+</div>
+<div style="display: flex; align-items: center; background: #15171B; border-radius: 12px">
+<button aria-label="Lower withdraw threshold" style="width: 44px; height: 44px; border: none; background: transparent; color: #ECE7DC; font-size: 22px; font-weight: 600; padding: 0">−</button>
+<span style="width: 44px; text-align: center; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums">30%</span>
+<button aria-label="Raise withdraw threshold" style="width: 44px; height: 44px; border: none; background: transparent; color: #ECE7DC; font-size: 22px; font-weight: 600; padding: 0">+</button>
+</div>
+</div>
+
+<div style="display: flex; gap: 10px; margin-top: auto">
+<button style="flex: 1; height: 48px; border-radius: 12px; background: #272B33; color: #ECE7DC; border: 1px solid #3A404B; font-size: 16px; font-weight: 600">Cancel</button>
+<button style="flex: 2; height: 48px; border-radius: 12px; background: #D4A94F; color: #1A1508; border: none; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1A1508" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4H20v5.5L9 20.5 3.5 15z"/><path d="M6 13l5 5M4 20l2.5-2.5"/></svg>
+Attack
+</button>
+</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
