@@ -42,6 +42,8 @@ export class MapView {
   private fog = new Graphics();
   private stacks = new Container();
   private cities = new Container();
+  /** One Graphics and label per city site, with the state they last showed. */
+  private cityDrawings = new Map<string, { g: Graphics; label: Text; key: string }>();
 
   constructor(private theme: Theme) {
     this.world.addChild(this.terrain, this.cities, this.fog, this.overlay, this.stacks, this.plan);
@@ -118,18 +120,35 @@ export class MapView {
     return g;
   }
 
-  /** Cities change hands, tier, and production during play, so they are redrawn with the state. */
+  /**
+   * Cities change hands, tier, and production during play, so they follow the
+   * state. Each site keeps one Graphics and one label, redrawn only when what
+   * they show changes; most renders touch none of them.
+   */
   private drawCities(view: PlayerView, highlight?: Hex): void {
-    clear(this.cities);
-    const layer = this.cities;
     for (const site of view.map.sites) {
-      const c = hexToPixel(site.pos);
       const city = view.cities[site.id]!;
+      const highlighted = highlight !== undefined && highlight.q === site.pos.q && highlight.r === site.pos.r;
+      const key = [city.owner, city.tier, city.razed, city.production !== null, city.secured, highlighted].join('|');
+      let drawn = this.cityDrawings.get(site.id);
+      if (drawn?.key === key) continue;
+      if (!drawn) {
+        const label = new Text({
+          text: site.name,
+          style: { fontFamily: 'Source Sans 3, system-ui, sans-serif', fontSize: 11, fontWeight: '700', fill: '#FFF8EA', stroke: { color: '#15171B', width: 3 } },
+        });
+        label.anchor.set(0.5, 0);
+        drawn = { g: new Graphics(), label, key };
+        this.cityDrawings.set(site.id, drawn);
+        this.cities.addChild(drawn.g, drawn.label);
+      }
+      drawn.key = key;
+      const c = hexToPixel(site.pos);
       const faction = view.players.find((p) => p.id === city.owner)?.factionId;
       const ring = faction ? this.theme.factions[faction]!.color : this.theme.ui.neutral;
       const size = city.tier === 'village' ? 9 : city.tier === 'city' ? 12 : 14;
-      const g = new Graphics();
-      if (highlight && highlight.q === site.pos.q && highlight.r === site.pos.r) g.circle(c.x, c.y, 24).stroke({ width: 3, color: this.theme.ui.path });
+      const g = drawn.g.clear();
+      if (highlighted) g.circle(c.x, c.y, 24).stroke({ width: 3, color: this.theme.ui.path });
       if (city.razed) {
         // Rubble: broken walls, no owner.
         for (const [dx, dy, w] of [[-9, 2, 8], [1, -4, 7], [-2, 6, 10]] as const) g.rect(c.x + dx, c.y + dy, w, 4).fill('#5E5547');
@@ -140,13 +159,9 @@ export class MapView {
         // Something in production (only the owner sees this).
         if (city.production) g.circle(c.x + size, c.y - size, 4).fill(this.theme.ui.path).stroke({ width: 1.5, color: '#15171B' });
       }
-      const label = new Text({
-        text: city.razed ? `${site.name} (ruins)` : site.name,
-        style: { fontFamily: 'Source Sans 3, system-ui, sans-serif', fontSize: 11, fontWeight: '700', fill: '#FFF8EA', stroke: { color: '#15171B', width: 3 } },
-      });
-      label.anchor.set(0.5, 0);
-      label.position.set(c.x, c.y + size + 2);
-      layer.addChild(g, label);
+      // Setting the same text again is free in PixiJS; a change re-renders the label once.
+      drawn.label.text = city.razed ? `${site.name} (ruins)` : site.name;
+      drawn.label.position.set(c.x, c.y + size + 2);
     }
   }
 

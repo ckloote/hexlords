@@ -17,7 +17,7 @@ import { oddsCard } from './oddsCard';
 import { summarizePath } from './pathSummary';
 import { netLabel, type Scoreboard, scoreLine } from './scoreboard';
 import { percent, type Strings } from './strings';
-import type { Summary } from './summary';
+import { battleLosses, type Summary } from './summary';
 import type { Theme } from './theme';
 
 export interface PanelContext {
@@ -164,11 +164,7 @@ export function attackPanel(ctx: PanelContext, mode: Extract<Mode, { kind: 'atta
 
 export function resultPanel(ctx: PanelContext, report: BattleReport, lostCities: readonly string[] = []): string {
   const { strings } = ctx;
-  const lost = { attacker: 0, defender: 0 };
-  for (const e of report.events) {
-    if (e.kind === 'death') lost[e.side]++;
-    if (e.kind === 'pursuit' && !e.cleanBreak && e.killed) lost[e.side]++;
-  }
+  const lost = battleLosses(report);
   const good = report.outcome === 'win' || report.outcome === 'defender-withdraw' || report.outcome === 'evaded';
   const lines: string[] = [];
   if (report.outcome !== 'evaded') {
