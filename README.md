@@ -4,7 +4,7 @@ A turn-based fantasy strategy game in the spirit of Warlords (1990): capture cit
 
 **Play:** https://ckloote.github.io/hexlords/
 
-**Status:** milestone 1 done: rules engine core (seeded RNG, content pack, modifiers, exact combat odds, battles with retreat and pursuit). Next up is milestone 2, map and movement.
+**Status:** milestone 2 done: hex map loaded from Tiled JSON, terrain and movement costs, zone of control, pathfinding, vision and fog, and battles on the map (retreat hexes, Evade, advancing). Next up is milestone 3, the playable slice.
 
 - Design: [docs/DESIGN.md](docs/DESIGN.md)
 - UI mockups: [docs/mockups/](docs/mockups/)
