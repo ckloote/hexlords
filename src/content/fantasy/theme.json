@@ -1,0 +1,30 @@
+{
+  "terrain": {
+    "plains": "#A7AC78",
+    "forest": "#6F8A57",
+    "hills": "#B09A6A",
+    "swamp": "#7E8763",
+    "mountains": "#8C8781",
+    "water": "#5C8FB4",
+    "river": "#5C8FB4"
+  },
+  "features": {
+    "road": "#E6D39C",
+    "bridge": "#E6D39C",
+    "ford": "#7FA7C2"
+  },
+  "factions": {
+    "dwarves": { "color": "#5B9BE6", "shape": "rounded-square" },
+    "orc-horde": { "color": "#E8873F", "shape": "diamond" },
+    "horse-clans": { "color": "#B48CE0", "shape": "circle" },
+    "elves": { "color": "#7FBF6A", "shape": "triangle" }
+  },
+  "ui": {
+    "background": "#15171B",
+    "text": "#ECE7DC",
+    "path": "#F2C55C",
+    "good": "#6CC28A",
+    "danger": "#EE7466",
+    "neutral": "#B3AC9F"
+  }
+}
