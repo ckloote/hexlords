@@ -6,7 +6,7 @@ import type { ContentPack } from './content';
 import { hexesWithin, hexKey } from './hex';
 import { inBounds, terrainAt } from './map';
 import { RULES } from './rules';
-import type { PlayerId, Stack, World } from './types';
+import type { GameState, PlayerId, Stack, World } from './types';
 
 /** Vision radius of a stack where it stands. */
 export function stackVision(world: World, content: ContentPack, stack: Stack): number {
@@ -34,4 +34,50 @@ export function visibleHexes(world: World, content: ContentPack, playerId: Playe
 /** Enemy stacks of `playerId` standing on a visible hex. */
 export function visibleEnemyStacks(world: World, playerId: PlayerId, visible: Set<string>): Stack[] {
   return Object.values(world.stacks).filter((s) => s.owner !== playerId && visible.has(hexKey(s.pos)));
+}
+
+/**
+ * What one player may know: the map, every player's public record, their own
+ * stacks, and the enemy stacks they can see right now, stance included
+ * (stances are public). No RNG state, so the future cannot be predicted.
+ * The AI reads only this, as a multiplayer server would send it.
+ */
+export interface PlayerView extends World {
+  viewer: PlayerId;
+  contentId: string;
+  turn: number;
+  currentPlayer: number;
+  /** hexKeys visible now. */
+  visible: string[];
+  /** hexKeys ever seen. */
+  explored: string[];
+}
+
+export function viewFor(state: GameState, content: ContentPack, playerId: PlayerId): PlayerView {
+  const visible = visibleHexes(state, content, playerId);
+  const stacks: World['stacks'] = {};
+  const units: World['units'] = {};
+  for (const stack of Object.values(state.stacks)) {
+    if (stack.owner !== playerId && !visible.has(hexKey(stack.pos))) continue;
+    stacks[stack.id] = cloneStack(stack);
+    for (const id of stack.unitIds) units[id] = { ...state.units[id]! };
+  }
+  return {
+    viewer: playerId,
+    contentId: state.contentId,
+    turn: state.turn,
+    currentPlayer: state.currentPlayer,
+    map: state.map,
+    players: state.players.map((p) => ({ ...p })),
+    stacks,
+    units,
+    visible: [...visible].sort(),
+    explored: Object.keys(state.explored[playerId] ?? {}).sort(),
+  };
+}
+
+function cloneStack(stack: Stack): Stack {
+  const copy: Stack = { ...stack, pos: { ...stack.pos }, unitIds: [...stack.unitIds], stance: { ...stack.stance } };
+  if (stack.route) copy.route = stack.route.map((h) => ({ ...h }));
+  return copy;
 }
