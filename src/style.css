@@ -28,34 +28,78 @@ body {
   font-family: var(--font-ui);
 }
 
-.splash {
-  min-height: 100dvh;
+.game {
+  height: 100dvh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 24px 16px;
-  text-align: center;
 }
 
-.splash h1 {
-  margin: 0;
+.topbar {
+  flex: none;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  padding-top: env(safe-area-inset-top);
+  box-sizing: content-box;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.topbar .banner {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--faction);
+}
+
+.topbar .faction {
   font-family: var(--font-display);
-  font-size: clamp(36px, 10vw, 64px);
+  font-size: 15px;
+  font-weight: 700;
   letter-spacing: 0.04em;
 }
 
-.splash p {
-  margin: 0;
-  max-width: 34ch;
-  font-size: 17px;
-  line-height: 1.45;
+.topbar .turn {
+  margin-left: auto;
+  font-size: 14px;
   color: var(--text-2);
 }
 
-.splash .build {
-  font-size: 13px;
+.map {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.map canvas {
+  display: block;
+}
+
+.hint {
+  flex: none;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 14px;
+}
+
+.build {
+  flex: none;
+  font-size: 11px;
   color: var(--text-2);
+  opacity: 0.7;
   font-variant-numeric: tabular-nums;
+}
+
+.error {
+  padding: 24px 16px;
 }

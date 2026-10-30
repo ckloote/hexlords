@@ -1,0 +1,17 @@
+{
+  "name": "Test map skirmish",
+  "seed": "test-map-1",
+  "players": [
+    { "id": "p1", "factionId": "dwarves" },
+    { "id": "p2", "factionId": "orc-horde" }
+  ],
+  "stacks": [
+    { "owner": "p1", "at": [6, 9], "units": ["siege-engine", "infantry", { "typeId": "infantry", "hits": 1 }, "ironguard", "hero"] },
+    { "owner": "p1", "at": [10, 13], "units": ["infantry", "archers"] },
+    { "owner": "p1", "at": [4, 12], "units": ["griffins"] },
+    { "owner": "p1", "at": [2, 13], "units": ["ironguard", "ironguard"] },
+    { "owner": "p2", "at": [6, 2], "units": ["militia", "militia", "infantry", "infantry", "trolls"] },
+    { "owner": "p2", "at": [6, 7], "units": ["infantry", "militia"], "stance": { "kind": "fall-back", "threshold": 0.4 } },
+    { "owner": "p2", "at": [11, 4], "units": ["cavalry"] }
+  ]
+}
