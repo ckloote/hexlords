@@ -80,8 +80,6 @@ export type Command =
       /** Move only these units, splitting them off; default the whole stack. */
       unitIds?: string[];
     }
-  | { type: 'Split'; playerId: PlayerId; stackId: string; unitIds: string[] }
-  | { type: 'Merge'; playerId: PlayerId; stackId: string; intoStackId: string }
   | { type: 'SetProduction'; playerId: PlayerId; siteId: string; unitTypeId: string | null }
   | { type: 'Explore'; playerId: PlayerId; stackId: string };
 

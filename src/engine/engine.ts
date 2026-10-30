@@ -94,9 +94,6 @@ export function applyCommand(state: GameState, command: Command, content: Conten
       return attack(state, command, content);
     case 'Move':
       return withExplored(applyMove(state, command, content), content);
-    case 'Split':
-    case 'Merge':
-      return { error: `${command.type}: use Move (with unitIds to split; moving onto a friendly stack merges)` };
     case 'SetProduction':
     case 'Explore':
       return { error: `${command.type} is not implemented yet` };
