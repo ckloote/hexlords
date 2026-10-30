@@ -1,17 +1,18 @@
 // The engine's core: applyCommand(state, command) → { state } | { error }.
 // Pure and deterministic: every random draw comes from state.rng.
 
-import { resolveBattle } from './battle';
+import { type BattleOutcome, resolveBattle } from './battle';
+import { canAdvance, planAttack } from './combat';
 import { applyMove, restoreMovement } from './move';
 import type { ContentPack } from './content';
-import { hexDistance, hexKey, type Hex } from './hex';
+import { type Hex, hexKey, sameHex } from './hex';
 import { inBounds, type MapState } from './map';
-import { canEnter, moverFor } from './movement';
+import { attackCost, canEnter, moverFor, movesLeft, stackMover } from './movement';
 import { visibleHexes } from './vision';
 import { type BattleContext, battleModifiers, type Combatant } from './modifiers';
 import { seedRng } from './rng';
 import { RULES } from './rules';
-import type { Command, CommandResult, GameState, Stack, Stance, Unit } from './types';
+import type { BattleReport, Command, CommandResult, GameState, Stack, Stance, Unit } from './types';
 
 export interface GameSetup {
   seed: number | string;
@@ -144,48 +145,43 @@ function endTurn(state: GameState, content: ContentPack): CommandResult {
   return { state: s, events: [{ kind: 'turn-started', playerId: s.players[next]!.id, turn }] };
 }
 
-/**
- * Terrain and city around the defender. There is no map until milestone 2 and
- * no cities until milestone 4, so every battle is on open plains for now.
- */
-function battleContextAt(_state: GameState, _pos: Hex): BattleContext {
-  return { terrainDefensePct: 0 };
-}
-
 function attack(
   state: GameState,
   command: Extract<Command, { type: 'Attack' }>,
   content: ContentPack,
 ): CommandResult {
   const own = state.stacks[command.stackId];
-  const target = state.stacks[command.targetStackId];
   if (!own || own.owner !== command.playerId) return { error: 'You do not own that stack' };
-  if (!target) return { error: 'No such target stack' };
-  if (target.owner === own.owner) return { error: 'Cannot attack your own stack' };
-  if (hexDistance(own.pos, target.pos) !== 1) return { error: 'Target is not adjacent' };
-  if (command.withdrawBelow !== undefined && !validThreshold(command.withdrawBelow)) {
-    return { error: 'withdrawBelow must be 0..1' };
-  }
-
-  const combatants = (stack: Stack): Combatant[] =>
-    stack.unitIds.map((id) => {
-      const unit = state.units[id]!;
-      return { id, type: content.units[unit.typeId]!, hits: unit.hits };
-    });
-
-  const ctx = battleContextAt(state, target.pos);
-  const mods = battleModifiers(combatants(own), combatants(target), ctx);
-  // City garrisons never retreat; field stacks follow their standing order.
-  // Evade needs the map (milestone 2), so it fights like Hold for now.
-  const defenderThreshold = !ctx.city && target.stance.kind === 'fall-back' ? target.stance.threshold : undefined;
-  const result = resolveBattle(state.rng, mods.attackers, mods.defenders, {
-    attackerThreshold: command.withdrawBelow,
-    defenderThreshold,
-  });
+  const plan = planAttack(state, content, command.stackId, command.targetStackId, command.withdrawBelow);
+  if ('error' in plan) return plan;
+  const { attacker, defender, retreatTo } = plan;
+  const need = attackCost(state, content, stackMover(state, content, attacker), defender.pos);
+  if (movesLeft(state, attacker.unitIds) < need) return { error: 'Not enough movement to attack' };
 
   const units = { ...state.units };
   const stacks = { ...state.stacks };
-  const settle = (stack: Stack, hits: number[]) => {
+  let rng = state.rng;
+  let outcome: BattleOutcome | 'evaded';
+  let battleEvents: BattleReport['events'] = [];
+  let attackerHits = attacker.unitIds.map((id) => units[id]!.hits);
+  let defenderHits = defender.unitIds.map((id) => units[id]!.hits);
+
+  if (plan.evades) {
+    outcome = 'evaded';
+  } else {
+    const result = resolveBattle(state.rng, plan.modifiers.attackers, plan.modifiers.defenders, {
+      attackerThreshold: plan.attackerThreshold,
+      defenderThreshold: plan.defenderThreshold,
+    });
+    rng = result.rng;
+    outcome = result.outcome;
+    battleEvents = result.events;
+    attackerHits = result.attackerHits;
+    defenderHits = result.defenderHits;
+  }
+
+  /** Applies damage and deaths; returns the surviving unit ids. */
+  const settle = (stack: Stack, hits: number[]): string[] => {
     const survivors: string[] = [];
     stack.unitIds.forEach((id, k) => {
       const h = hits[k]!;
@@ -198,24 +194,51 @@ function attack(
     });
     if (survivors.length > 0) stacks[stack.id] = { ...stack, unitIds: survivors };
     else delete stacks[stack.id];
+    return survivors;
   };
-  // Retreating stacks stay in place until milestone 2 adds retreat hexes.
-  settle(own, result.attackerHits);
-  settle(target, result.defenderHits);
+  const attackers = settle(attacker, attackerHits);
+  const defenders = settle(defender, defenderHits);
 
-  return {
-    state: { ...state, rng: result.rng, units, stacks },
-    events: [
-      {
-        kind: 'battle',
-        attackerStackId: own.id,
-        defenderStackId: target.id,
-        attackerUnitIds: [...own.unitIds],
-        defenderUnitIds: [...target.unitIds],
-        modifiers: mods.lines,
-        outcome: result.outcome,
-        events: result.events,
-      },
-    ],
+  // An attack ends the attacking stack's movement for the turn, whatever happens.
+  for (const id of attackers) units[id] = { ...units[id]!, moveLeft: 0 };
+
+  // A withdrawing or evading defender moves to its retreat hex, merging with a friendly stack there.
+  let defenderRetreatTo: Hex | undefined;
+  if ((outcome === 'defender-withdraw' || outcome === 'evaded') && defenders.length > 0 && retreatTo) {
+    defenderRetreatTo = retreatTo;
+    for (const id of defenders) units[id] = { ...units[id]!, retreated: true };
+    const host = Object.values(stacks).find((s) => s.id !== defender.id && sameHex(s.pos, retreatTo));
+    if (host) {
+      stacks[host.id] = { ...host, unitIds: [...host.unitIds, ...defenders] };
+      delete stacks[defender.id];
+    } else {
+      const moved: Stack = { ...stacks[defender.id]!, pos: retreatTo };
+      delete moved.route;
+      stacks[defender.id] = moved;
+    }
+  }
+
+  // The winner advances for free if the hex is now empty and every unit can enter it.
+  const vacated = !Object.values(stacks).some((s) => sameHex(s.pos, defender.pos));
+  const attackerAdvanced =
+    attackers.length > 0 && vacated && canAdvance(state, content, attacker, attackers, defender.pos);
+  if (attackerAdvanced) {
+    const moved: Stack = { ...stacks[attacker.id]!, pos: defender.pos };
+    delete moved.route;
+    stacks[attacker.id] = moved;
+  }
+
+  const report: BattleReport = {
+    kind: 'battle',
+    attackerStackId: attacker.id,
+    defenderStackId: defender.id,
+    attackerUnitIds: [...attacker.unitIds],
+    defenderUnitIds: [...defender.unitIds],
+    modifiers: plan.modifiers.lines,
+    outcome,
+    events: battleEvents,
+    attackerAdvanced,
   };
+  if (defenderRetreatTo) report.defenderRetreatTo = defenderRetreatTo;
+  return { state: refreshExplored({ ...state, rng, units, stacks }, content), events: [report] };
 }

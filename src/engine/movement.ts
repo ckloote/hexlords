@@ -76,6 +76,15 @@ export function zoneOfControl(world: World, playerId: PlayerId, visible: Set<str
   return zoc;
 }
 
+/**
+ * Movement an attack on `h` needs: the normal cost of entering it, or a plains
+ * step when the attacker cannot enter it (dwarves on a mountain can still be attacked).
+ */
+export function attackCost(world: World, content: ContentPack, mover: Mover, h: Hex): number {
+  const cost = hexCost(world, content, mover, h);
+  return Number.isFinite(cost) ? cost : RULES.attackIntoImpassableCost;
+}
+
 /** The +2 for sliding from one hex next to an enemy stack to another hex next to the same stack. */
 export function zocTax(world: World, content: ContentPack, mover: Mover, zoc: ZoneOfControl, from: Hex, to: Hex): number {
   if (mover.flying) return 0;
@@ -209,7 +218,7 @@ export function reachable(world: World, content: ContentPack, stackId: string, q
     for (const n of neighbors(h)) {
       const enemy = enemyAt.get(hexKey(n));
       if (!enemy) continue;
-      const cost = label + hexCost(world, content, mover, n);
+      const cost = label + attackCost(world, content, mover, n);
       if (cost <= budget && (!attacks[enemy.id] || cost < attacks[enemy.id]!.cost)) attacks[enemy.id] = { from: key, cost };
     }
   }
@@ -258,7 +267,7 @@ export function findPath(world: World, content: ContentPack, stackId: string, go
       const key = hexKey(to);
       const attack = enemyAt.has(key);
       if (attack && key !== goalKey) return null;
-      const c = attack ? hexCost(world, content, mover, to) : stepCost(world, content, mover, zoc, from, to);
+      const c = attack ? attackCost(world, content, mover, to) : stepCost(world, content, mover, zoc, from, to);
       if (!Number.isFinite(c) || c > full) return null;
       const budget = label.turn === 0 ? now : full;
       return label.used + c <= budget ? { turn: label.turn, used: label.used + c } : { turn: label.turn + 1, used: c };

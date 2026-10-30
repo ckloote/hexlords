@@ -1,11 +1,17 @@
 // Public API of the rules engine.
 export * from './battle';
+export * from './combat';
 export * from './content';
 export * from './engine';
 export * from './fight';
 export * from './hex';
+export * from './map';
+export * from './move';
+export * from './movement';
 export * from './modifiers';
 export * from './odds';
 export * from './rng';
 export * from './rules';
+export * from './tiled';
 export * from './types';
+export * from './vision';

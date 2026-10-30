@@ -92,9 +92,14 @@ export interface BattleReport {
   attackerUnitIds: string[];
   defenderUnitIds: string[];
   modifiers: ModifierLine[];
-  outcome: BattleOutcome;
+  /** 'evaded': the defender left before the first duel (no battle events). */
+  outcome: BattleOutcome | 'evaded';
   /** Unit indices in these events refer to attackerUnitIds / defenderUnitIds. */
   events: BattleEvent[];
+  /** Where a withdrawing or evading defender went. */
+  defenderRetreatTo?: Hex;
+  /** The attacker moved into the defender's hex. */
+  attackerAdvanced: boolean;
 }
 
 export interface MoveReport {

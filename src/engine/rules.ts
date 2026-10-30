@@ -21,6 +21,8 @@ export const RULES = {
   cityVision: 2,
   /** A flier pays at most this per hex (roads and bridges still cost less). */
   flyingStepCost: 2,
+  /** Movement an attack needs when the attacker cannot enter the defender's hex (a plains step). */
+  attackIntoImpassableCost: 2,
   /** Movement lost on the next turn after retreating or evading. */
   retreatMovePenaltyPct: 50,
   /** Evade leaves when the evader's own win chance is below this. */
