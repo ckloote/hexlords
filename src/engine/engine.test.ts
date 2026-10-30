@@ -153,7 +153,7 @@ describe('applyCommand: turns and stances', () => {
 
   it('commands from later milestones return an error, not a throw', () => {
     const s = createGame(setup, fantasy);
-    const r = applyCommand(s, { type: 'SetProduction', playerId: 'p1', siteId: 'x', unitTypeId: null }, fantasy);
-    expect(r).toEqual({ error: 'SetProduction is not implemented yet' });
+    const r = applyCommand(s, { type: 'Explore', playerId: 'p1', stackId: 's1' }, fantasy);
+    expect(r).toEqual({ error: 'Explore is not implemented yet' });
   });
 });

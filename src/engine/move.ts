@@ -73,7 +73,7 @@ export function applyMove(state: GameState, command: MoveCommand, content: Conte
   const end = path[stop.index]!;
 
   const units = { ...state.units };
-  for (const id of unitIds) units[id] = { ...units[id]!, moveLeft: units[id]!.moveLeft - stop.spent };
+  for (const id of unitIds) units[id] = { ...units[id]!, moveLeft: units[id]!.moveLeft - stop.spent, acted: true };
 
   const stacks = { ...state.stacks };
   let nextId = state.nextId;

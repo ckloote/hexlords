@@ -91,7 +91,10 @@ export interface GameState extends World {
   currentPlayer: number;
   /** Hexes each player has ever seen, keyed by hexKey. */
   explored: Record<PlayerId, Record<string, true>>;
+  /** Counter for stack ids (s1, s2, ...). */
   nextId: number;
+  /** Counter for unit ids (u1, u2, ...). */
+  nextUnitId: number;
   /** Treasury per player. */
   gold: Record<PlayerId, number>;
   /** A city the current player just took; they must choose what to do with it before anything else. */

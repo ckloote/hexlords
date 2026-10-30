@@ -52,18 +52,25 @@ describe('the test map', () => {
   });
 
   it('plays a scripted turn sequence that replays identically and survives JSON', () => {
-    const start = createGame(setup, fantasy);
+    // The orcs also hold Hollow Pine here, so losing Gravelmaw does not eliminate them.
+    const begin = () => {
+      const s = createGame(setup, fantasy);
+      return { ...s, cities: { ...s.cities, site2: { ...s.cities.site2!, owner: 'p2', heldSince: 0, secured: true } } };
+    };
+    const start = begin();
     const route = findPath(start, fantasy, 's3', at(6, 7))!;
     expect(route.some((p) => p.hex.q === at(6, 8).q && p.hex.r === at(6, 8).r)).toBe(true); // over the bridge
     const commands: Command[] = [
       { type: 'Attack', playerId: 'p1', stackId: 's1', targetStackId: 's2', withdrawBelow: 0.3 },
+      // This seed wins: the host advances into Gravelmaw and takes it.
+      { type: 'ResolveCapture', playerId: 'p1', siteId: 'site1', choice: 'occupy' },
       { type: 'Move', playerId: 'p1', stackId: 's3', path: route.map((p) => p.hex) },
       { type: 'EndTurn', playerId: 'p1' },
       { type: 'SetStance', playerId: 'p2', stackId: 's4', stance: { kind: 'evade' } },
       { type: 'EndTurn', playerId: 'p2' },
     ];
-    const a = replay(createGame(setup, fantasy), commands, fantasy);
-    const b = replay(createGame(setup, fantasy), commands, fantasy);
+    const a = replay(begin(), commands, fantasy);
+    const b = replay(begin(), commands, fantasy);
     expect(a).toEqual(b);
     const roundTrip = JSON.parse(JSON.stringify(a)) as GameState;
     expect(roundTrip).toEqual(a);
@@ -71,6 +78,7 @@ describe('the test map', () => {
     const next: Command = { type: 'EndTurn', playerId: 'p1' };
     expect(applyCommand(roundTrip, next, fantasy)).toEqual(applyCommand(a, next, fantasy));
     expect(a.turn).toBe(2);
+    expect(a.cities.site1).toMatchObject({ owner: 'p1', secured: false });
     expect(Object.keys(a.explored.p1!).length).toBeGreaterThan(Object.keys(start.explored.p1!).length);
   });
 });

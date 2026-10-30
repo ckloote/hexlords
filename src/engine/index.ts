@@ -1,5 +1,6 @@
 // Public API of the rules engine.
 export * from './battle';
+export * from './cities';
 export * from './combat';
 export * from './content';
 export * from './economy';
@@ -15,4 +16,5 @@ export * from './rng';
 export * from './rules';
 export * from './tiled';
 export * from './types';
+export * from './turn';
 export * from './vision';
