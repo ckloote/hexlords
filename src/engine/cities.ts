@@ -56,18 +56,19 @@ export function captureAt(
   }
   const siteId = city.site.id;
   // A city that changes hands again drops any earlier claim on it; the new owner's choice replaces it.
-  const others = state.pendingCaptures.filter((id) => id !== siteId);
+  const others = state.pendingCaptures.filter((p) => p.siteId !== siteId);
   const next: GameState = {
     ...state,
     cities: { ...state.cities, [siteId]: taken(city.state, stack.owner) },
-    pendingCaptures: choose ? [...others, siteId] : others,
+    pendingCaptures: choose ? [...others, { siteId, from: city.state.owner }] : others,
   };
   const event: TurnEvent = { kind: 'captured', playerId: stack.owner, siteId, from: city.state.owner, stackId };
   return { state: next, events: [event] };
 }
 
 export function resolveCapture(state: GameState, playerId: PlayerId, siteId: string, choice: CaptureChoice): CommandResult {
-  if (!state.pendingCaptures.includes(siteId)) return { error: 'There is no capture to resolve there' };
+  const pending = state.pendingCaptures.find((p) => p.siteId === siteId);
+  if (!pending) return { error: 'There is no capture to resolve there' };
   if (!['occupy', 'pillage', 'raze'].includes(choice)) return { error: 'Unknown capture choice' };
   const city = state.cities[siteId]!;
   if (city.owner !== playerId || city.razed) return { error: 'That city is no longer yours' };
@@ -85,9 +86,9 @@ export function resolveCapture(state: GameState, playerId: PlayerId, siteId: str
     ...state,
     cities: { ...state.cities, [siteId]: next },
     gold: { ...state.gold, [playerId]: (state.gold[playerId] ?? 0) + gold },
-    pendingCaptures: state.pendingCaptures.filter((id) => id !== siteId),
+    pendingCaptures: state.pendingCaptures.filter((p) => p.siteId !== siteId),
   };
-  return { state: s, events: [{ kind: 'capture-resolved', playerId, siteId, choice, gold }] };
+  return { state: s, events: [{ kind: 'capture-resolved', playerId, siteId, from: pending.from, choice, gold }] };
 }
 
 /**

@@ -211,7 +211,7 @@ function react(view: PlayerView, content: ContentPack, state: UiState, input: In
   }
   const pending = view.pendingCaptures;
   // The capture card is modal: the city's fate comes first.
-  if (mode.kind === 'capture' && pending.includes(mode.siteId)) {
+  if (mode.kind === 'capture' && pending.some((p) => p.siteId === mode.siteId)) {
     if (input.kind !== 'capture') return none(state);
     return { ui: state, commands: [{ type: 'ResolveCapture', playerId: view.viewer, siteId: mode.siteId, choice: input.choice }] };
   }
@@ -225,7 +225,7 @@ function react(view: PlayerView, content: ContentPack, state: UiState, input: In
       return none(ui({ kind: 'idle' }));
     case 'continue':
       if (mode.kind === 'result') {
-        if (pending.length) return none(ui({ kind: 'capture', siteId: pending[0]! }));
+        if (pending.length) return none(ui({ kind: 'capture', siteId: pending[0]!.siteId }));
         const id = mode.report.attackerStackId;
         return none(view.stacks[id] ? select(id) : ui({ kind: 'idle' }));
       }
@@ -275,7 +275,7 @@ function react(view: PlayerView, content: ContentPack, state: UiState, input: In
       return none(state);
     case 'endTurn': {
       if (pending.length) {
-        return none(ui({ kind: 'capture', siteId: pending[0]! }, 'Decide what to do with the cities you took before ending the turn.'));
+        return none(ui({ kind: 'capture', siteId: pending[0]!.siteId }, 'Decide what to do with the cities you took before ending the turn.'));
       }
       const idle = idleCities(view);
       if (idle.length && !state.endWarned) {
@@ -304,7 +304,7 @@ export function settle(step: UiState, events: GameEvent[], error: string | null,
     const lostCities = events.flatMap((e) => (e.kind === 'captured' && e.from === view.viewer ? [e.siteId] : []));
     return ui({ kind: 'result', report: battle, lostCities }, error);
   }
-  const nextCapture = view.pendingCaptures[0];
+  const nextCapture = view.pendingCaptures[0]?.siteId;
   const moves = events.filter((e) => e.kind === 'moved');
   const routesNote =
     mode.kind === 'idle' && moves.length

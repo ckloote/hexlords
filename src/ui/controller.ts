@@ -63,7 +63,7 @@ export class Game {
       }
       if (p.id === actor) continue;
       const inbox = (this.inbox[p.id] ??= []);
-      for (const e of events) if (summaryEventFor(e, p.id, inbox)) inbox.push(e);
+      for (const e of events) if (summaryEventFor(e, p.id)) inbox.push(e);
     }
     let next = settle(step.ui, events, error, this.view());
     if (next.mode.kind === 'summary' && next.mode.events.length === 0) {

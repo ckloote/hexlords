@@ -138,7 +138,7 @@ describe('capture', () => {
     if ('error' in r) throw new Error(r.error);
     expect(r.events).toContainEqual({ kind: 'captured', playerId: 'p1', siteId: 'c2', from: null, stackId: 's1' });
     expect(r.state.cities.c2).toMatchObject({ owner: 'p1', secured: false, heldSince: null });
-    expect(r.state.pendingCaptures).toEqual(['c2']);
+    expect(r.state.pendingCaptures).toEqual([{ siteId: 'c2', from: null }]);
     expect(applyCommand(r.state, end('p1'), fantasy)).toEqual({ error: 'Choose what to do with the captured cities first' });
     expect(applyCommand(r.state, resolve('c0', 'occupy'), fantasy)).toMatchObject({ error: expect.any(String) });
   });
@@ -146,13 +146,13 @@ describe('capture', () => {
   it('queues several captures; play goes on, and the turn ends once each is resolved', () => {
     const t = replay(s, [intoVillage, intoCapital], fantasy);
     expect(t.pendingCaptures).toEqual([
-      'c2',
-      'c3',
+      { siteId: 'c2', from: null },
+      { siteId: 'c3', from: 'p2' },
     ]);
     // Other commands still run while captures wait.
     const moved = ok(applyCommand(t, { type: 'Move', playerId: 'p1', stackId: 's1', path: [at(3, 3)] }, fantasy));
     const one = ok(applyCommand(moved, resolve('c3', 'pillage'), fantasy));
-    expect(one.pendingCaptures).toEqual(['c2']);
+    expect(one.pendingCaptures).toEqual([{ siteId: 'c2', from: null }]);
     expect(applyCommand(one, end('p1'), fantasy)).toEqual({ error: 'Choose what to do with the captured cities first' });
     const both = ok(applyCommand(one, resolve('c2', 'occupy'), fantasy));
     expect(both.pendingCaptures).toEqual([]);
@@ -197,14 +197,14 @@ describe('capture', () => {
   it('a pending capture the enemy retakes by falling back into it drops off, and cannot be pillaged', () => {
     // p1 takes the village, then walks out of it; a p2 stack falls back into the empty village.
     const taken = replay(s, [intoVillage, { type: 'Move', playerId: 'p1', stackId: 's1', path: [at(3, 3)] }], fantasy);
-    expect(taken.pendingCaptures).toEqual(['c2']);
+    expect(taken.pendingCaptures).toEqual([{ siteId: 'c2', from: null }]);
     const fellBack = captureAt({ ...taken, stacks: { ...taken.stacks, s3: { ...taken.stacks.s3!, pos: at(3, 2) } } }, 's3', at(3, 2), false).state;
     expect(fellBack.cities.c2!.owner).toBe('p2');
     expect(fellBack.pendingCaptures).toEqual([]);
     expect(applyCommand(fellBack, resolve('c2', 'pillage'), fantasy)).toEqual({ error: 'There is no capture to resolve there' });
     expect(ok(applyCommand(fellBack, end('p1'), fantasy)).currentPlayer).toBe(1); // nothing left to resolve
     // Even with a stale entry, resolving refuses a city the player no longer holds.
-    const stale: GameState = { ...fellBack, pendingCaptures: ['c2'] };
+    const stale: GameState = { ...fellBack, pendingCaptures: [{ siteId: 'c2', from: null }] };
     expect(applyCommand(stale, resolve('c2', 'pillage'), fantasy)).toEqual({ error: 'That city is no longer yours' });
   });
 
@@ -214,7 +214,7 @@ describe('capture', () => {
     // p1 takes it back by advancing in again (the p2 stack moved off for the test).
     const cleared: GameState = { ...lost, stacks: { ...lost.stacks, s3: { ...lost.stacks.s3!, pos: at(7, 2) } } };
     const again = ok(applyCommand(cleared, { type: 'Move', playerId: 'p1', stackId: 's1', path: [at(3, 2)] }, fantasy));
-    expect(again.pendingCaptures).toEqual(['c2']);
+    expect(again.pendingCaptures).toEqual([{ siteId: 'c2', from: 'p2' }]);
     expect(again.cities.c2!.owner).toBe('p1');
   });
 
@@ -227,6 +227,6 @@ describe('capture', () => {
     if ('error' in r) throw new Error(r.error);
     expect(r.events[0]).toMatchObject({ kind: 'battle', outcome: 'win', attackerAdvanced: true, attackerOwner: 'p1', defenderOwner: 'p2' });
     expect(r.events[1]).toEqual({ kind: 'captured', playerId: 'p1', siteId: 'c1', from: 'p2', stackId: 's1' });
-    expect(r.state.pendingCaptures).toEqual(['c1']);
+    expect(r.state.pendingCaptures).toEqual([{ siteId: 'c1', from: 'p2' }]);
   });
 });

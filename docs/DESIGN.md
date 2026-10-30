@@ -273,7 +273,7 @@ The battle math shows that combat value equals Strength × Hits. A Strength-8 un
 - Pillage pays 3 turns of the city's income at its current tier, then drops it one tier. Pillaging a village razes it. (The Orc Horde's double pillage arrives with the faction traits.)
 - A razed city is rubble: no owner, income, defense, vision, or production, and nobody can take it again. It leaves the map's total income, so the domination target shrinks; a pillaged city counts at its new tier.
 - Taking a city stops its production and restarts its hold: it is not secured until its new owner has held it for a full round.
-- A defender that falls back into an empty city held by someone else occupies it, with no choice, since it is not that player's turn.
+- A defender that falls back into an empty city held by someone else, or by nobody, occupies it, with no choice, since it is not that player's turn.
 
 ## Units and factions
 
@@ -382,7 +382,7 @@ Score is city income, a city counts only once it is secured, and a player wins b
 
 Example: a map with 4 capitals, 6 cities, and 8 villages has 180 total income, so domination needs 90. Everyone starts at 20.
 
-The domination target is rounded up. It is checked at the start of each turn from the second round on, so a map that gives a player the domination share at the start ends the game at that player's second turn. The small test map has 40 total income: each side starts with a city and a village (15), and a neutral city, Ashvale, adds 10. Both sides start with 15 and +1 gold a turn after upkeep, and it uses the default 50%: taking a village reaches exactly half, which is not yet a last stand, while taking Ashvale passes it. If the score and the army value are both tied when the last turn ends, the game is a draw.
+The domination target is rounded up. It is checked at the start of each turn from the second round on, so a map that gives a player the domination share at the start ends the game at that player's second turn. The small test map has 40 total income: each side starts with a city and a village (15), and a neutral city, Ashvale, adds 10. Both sides start with 15 and +1 gold a turn after upkeep, and it uses the default 50%: taking a village reaches exactly half, which is not yet a last stand, while taking Ashvale passes it. If the score and the army value are both tied when the last turn ends, the game is a draw. Army value counts each unit at its purchase price; heroes have no price yet and count 0 until hiring arrives in milestone 6, when they should count at their hiring price as in AI scoring.
 
 Each map sets its own turn limit. Start around 40 turns, about 40 minutes at a minute per human turn, then set it a little past the length of decisive AI-vs-AI games.
 

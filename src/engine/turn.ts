@@ -129,11 +129,10 @@ export function startTurn(state: GameState, content: ContentPack, events: TurnEv
     s = heal(s, content, playerId, events);
   }
   s = secure(s, playerId, events);
-  s = clearActed(restoreMovement(s, content, playerId, RULES.retreatMovePenaltyPct), playerId);
   if (checks && totalIncome(s) > 0 && securedScore(s, playerId) >= dominationTarget(s)) {
     s = setWinner(s, { playerId, reason: 'domination' }, events);
   }
-  return s;
+  return clearActed(restoreMovement(s, content, playerId, RULES.retreatMovePenaltyPct), playerId);
 }
 
 /** The winner when the last turn ends: highest secured score, then the larger army by gold value; null on a full tie. */

@@ -49,6 +49,25 @@ export function countNames(names: string[]): string {
   return [...counts].map(([n, k]) => `${k} ${n}`).join(', ');
 }
 
+/**
+ * Gold left for `siteId` at the next turn start: production pays city by city
+ * in map order, so cities earlier in the order that finish a unit then (and
+ * are not blocked) spend first.
+ */
+export function goldWhenReached(view: PlayerView, content: ContentPack, siteId: string, nextGold: number): number {
+  let gold = nextGold;
+  for (const site of view.map.sites) {
+    if (site.id === siteId) break;
+    const city = view.cities[site.id]!;
+    if (city.owner !== view.viewer || city.razed || !city.production) continue;
+    const type = content.units[city.production.unitTypeId]!;
+    if (city.production.progress + 1 < (type.buildTurns ?? 1)) continue;
+    const cost = type.cost ?? 0;
+    if (!productionBlocker(view, site.pos, view.viewer, cost, gold)) gold -= cost;
+  }
+  return gold;
+}
+
 export function cityCard(view: PlayerView, content: ContentPack, strings: Strings, siteId: string): CityCard {
   const site = view.map.sites.find((s) => s.id === siteId)!;
   const city = view.cities[siteId]!;
@@ -68,8 +87,9 @@ export function cityCard(view: PlayerView, content: ContentPack, strings: String
     const turns = type.buildTurns ?? 1;
     const { progress } = city.production;
     const cost = type.cost ?? 0;
-    // A finished unit leaves at the next turn start unless something blocks it.
-    const blocker = progress < turns ? null : productionBlocker(view, site.pos, view.viewer, cost, nextGold);
+    // A unit that finishes at the next turn start leaves then unless something blocks it.
+    const finishing = progress + 1 >= turns;
+    const blocker = finishing ? productionBlocker(view, site.pos, view.viewer, cost, goldWhenReached(view, content, siteId, nextGold)) : null;
     const status =
       blocker === 'full' ? 'Waiting: the stack in the city is full'
       : blocker === 'gold' ? `Waiting for gold: needs ${cost}`

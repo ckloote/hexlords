@@ -31,12 +31,12 @@ export interface Summary {
 type Of<K extends TurnEvent['kind']> = Extract<TurnEvent, { kind: K }>;
 
 /**
- * Whether `event` belongs in `playerId`'s next turn summary, given the events
- * already kept for them: battles they fought, cities taken from or by them
- * (and what was done with those), their own turn-start events, eliminations,
- * and the end of the game.
+ * Whether `event` belongs in `playerId`'s next turn summary: battles they
+ * fought, cities taken from or by them (and what the taker did with cities
+ * taken from them), their own turn-start events, eliminations, and the end of
+ * the game.
  */
-export function summaryEventFor(event: GameEvent, playerId: PlayerId, kept: readonly GameEvent[]): boolean {
+export function summaryEventFor(event: GameEvent, playerId: PlayerId): boolean {
   switch (event.kind) {
     case 'moved':
       return false;
@@ -45,7 +45,7 @@ export function summaryEventFor(event: GameEvent, playerId: PlayerId, kept: read
     case 'captured':
       return event.playerId === playerId || event.from === playerId;
     case 'capture-resolved':
-      return kept.some((e) => e.kind === 'captured' && e.siteId === event.siteId);
+      return event.from === playerId;
     case 'eliminated':
     case 'game-over':
       return true;
@@ -91,12 +91,14 @@ export function buildSummary(view: PlayerView, content: ContentPack, strings: St
 
   const resolved = of('capture-resolved');
   for (const e of of('captured')) {
-    const fate = resolved.find((r) => r.siteId === e.siteId)?.choice;
+    // The taker's own choice for this city; a later owner's choice is someone else's story.
+    const fate = resolved.find((r) => r.siteId === e.siteId && r.playerId === e.playerId && r.from === e.from)?.choice;
     const city = view.cities[e.siteId]!;
     if (e.from === me) {
       const detail =
-        fate === 'raze' || city.razed ? 'They razed it.'
-        : fate === 'pillage' ? `They pillaged it; it is now a ${strings.tiers[city.tier].toLowerCase()}.`
+        fate === 'raze' ? 'They razed it.'
+        : fate === 'pillage' ? (city.razed ? 'They pillaged it to the ground.' : `They pillaged it; it is now a ${strings.tiers[city.tier].toLowerCase()}.`)
+        : city.razed ? 'City lost.'
         : `${strings.tiers[city.tier]} lost · income −${cityIncome(city.tier)} a turn`;
       items.push({ tone: 'danger', title: `The ${factionName(e.playerId)} took ${siteName(e.siteId)}`, detail });
     } else if (e.playerId === me) {

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { fantasy } from '../content/fantasy';
 import stringsJson from '../content/fantasy/strings.json';
 import themeJson from '../content/fantasy/theme.json';
-import { at } from '../engine/test-fixtures';
+import { createGame } from '../engine/engine';
+import { asciiMap, at } from '../engine/test-fixtures';
 import type { BattleReport, GameEvent, GameState } from '../engine/types';
 import { viewFor } from '../engine/vision';
 import { cityCard, countNames } from './cityCard';
@@ -12,7 +13,7 @@ import { initialUi, type Input, MOVED, settle, type UiState } from './interactio
 import { resultPanel } from './panels';
 import { leaderLine, netLabel, scoreboard, scoreLine } from './scoreboard';
 import { loadStrings, signed } from './strings';
-import { buildSummary } from './summary';
+import { buildSummary, summaryEventFor } from './summary';
 import { loadTheme } from './theme';
 
 // Demo game: the dwarves (p1) hold Stonebridge (site4, city) and Kettle Ford
@@ -78,6 +79,28 @@ describe('city card', () => {
     // Another player's stack in the city blocks it, as the engine rules.
     const blocked: GameState = { ...flush, stacks: { ...flush.stacks, s3: { ...flush.stacks.s3!, pos: at(6, 14) } } };
     expect(cityCard(viewFor(blocked, fantasy, 'p1'), fantasy, strings, 'site4').building!.status).toBe('Waiting: the stack in the city is full');
+  });
+
+  it('spends next turn\'s gold city by city, in the order production runs', () => {
+    // Kettle Ford (site3) comes before Stonebridge (site4) in map order. The dwarves net +1 a turn.
+    const s = demoGame();
+    const building = (gold: number, stonebridgeUnit = 'archers'): GameState => ({
+      ...s,
+      gold: { ...s.gold, p1: gold },
+      cities: {
+        ...s.cities,
+        site3: { ...s.cities.site3!, production: { unitTypeId: 'infantry', progress: 1 } }, // finished, 16
+        site4: { ...s.cities.site4!, production: { unitTypeId: stonebridgeUnit, progress: 0 } }, // finishes next turn
+      },
+    });
+    const status = (state: GameState, siteId: string) => cityCard(viewFor(state, fantasy, 'p1'), fantasy, strings, siteId).building!.status;
+    // 29 + 1 = 30: Kettle Ford pays 16 first, leaving 14 for Archers (15).
+    expect(status(building(29), 'site3')).toBe('Ready on turn 2');
+    expect(status(building(29), 'site4')).toBe('Waiting for gold: needs 15');
+    expect(status(building(30), 'site4')).toBe('Ready on turn 2');
+    // A unit that finishes next turn is checked too, not only one already waiting.
+    const broke: GameState = { ...building(0, 'militia'), cities: { ...building(0, 'militia').cities, site3: { ...s.cities.site3!, production: null } } };
+    expect(status(broke, 'site4')).toBe('Waiting for gold: needs 8');
   });
 
   it('judges gold against next turn\'s treasury, after income and upkeep', () => {
@@ -265,5 +288,29 @@ describe('cities and captures in play', () => {
     const ctx = { view, content: fantasy, strings, theme: loadTheme(themeJson, fantasy) };
     expect(resultPanel(ctx, report, ['site5'])).toContain('They fell back into Ashvale and took it.');
     expect(resultPanel(ctx, report)).not.toContain('took it');
+  });
+
+  it('credits a lost city\'s fate to whoever took it from you, not to a later taker', () => {
+    // p1 (dwarves) loses c0 to the orcs, who occupy it; the elves then take it from the orcs and raze it.
+    const map = asciiMap(['......'], [{ at: at(0, 0), tier: 'city', owner: 'p1', name: 'Ashford' }, { at: at(5, 0), tier: 'city', owner: 'p1' }]);
+    const players = [
+      { id: 'p1', factionId: 'dwarves' },
+      { id: 'p2', factionId: 'orc-horde' },
+      { id: 'p3', factionId: 'elves' },
+    ];
+    const g = createGame({ seed: 1, map, players, stacks: [] }, fantasy);
+    const state: GameState = { ...g, cities: { ...g.cities, c0: { ...g.cities.c0!, owner: null, razed: true } } };
+    const events: GameEvent[] = [
+      { kind: 'captured', playerId: 'p2', siteId: 'c0', from: 'p1', stackId: 's1' },
+      { kind: 'capture-resolved', playerId: 'p2', siteId: 'c0', from: 'p1', choice: 'occupy', gold: 0 },
+      { kind: 'captured', playerId: 'p3', siteId: 'c0', from: 'p2', stackId: 's2' },
+      { kind: 'capture-resolved', playerId: 'p3', siteId: 'c0', from: 'p2', choice: 'raze', gold: 0 },
+    ];
+    const kept = events.filter((e) => summaryEventFor(e, 'p1'));
+    expect(kept).toEqual(events.slice(0, 2));
+    const summary = buildSummary(viewFor(state, fantasy, 'p1'), fantasy, strings, kept);
+    expect(summary.items).toEqual([{ tone: 'danger', title: 'The Orc Horde took Ashford', detail: 'City lost.' }]);
+    // Even given every event, the elves' razing is not pinned on the orcs.
+    expect(buildSummary(viewFor(state, fantasy, 'p1'), fantasy, strings, events).items[0]!.detail).toBe('City lost.');
   });
 });
