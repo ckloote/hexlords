@@ -210,7 +210,7 @@ function attack(
       delete stacks[defender.id];
     } else {
       const moved: Stack = { ...stacks[defender.id]!, pos: retreatTo };
-      delete moved.route;
+      delete moved.destination;
       stacks[defender.id] = moved;
     }
   }
@@ -221,7 +221,7 @@ function attack(
     attackers.length > 0 && vacated && canAdvance(state, content, attacker, attackers, defender.pos);
   if (attackerAdvanced) {
     const moved: Stack = { ...stacks[attacker.id]!, pos: defender.pos };
-    delete moved.route;
+    delete moved.destination;
     stacks[attacker.id] = moved;
   }
 

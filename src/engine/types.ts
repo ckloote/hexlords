@@ -34,8 +34,12 @@ export interface Stack {
   pos: Hex;
   unitIds: string[];
   stance: Stance;
-  /** Rest of a multi-turn route, for the UI to issue again next turn. */
-  route?: Hex[];
+  /**
+   * Where an unfinished move was headed. The engine never continues it: at the
+   * start of the owner's turn the UI plans a fresh path here (or drops it if
+   * none exists), since zone of control and new sightings change the best path.
+   */
+  destination?: Hex;
 }
 
 /** The parts of the state that describe the board; shared by the full state and a player's view. */
@@ -70,7 +74,6 @@ export type Command =
       /** Withdraw if the win chance drops below this (0..1). Omit to hold. */
       withdrawBelow?: number;
     }
-  // Later milestones.
   | {
       type: 'Move';
       playerId: PlayerId;
@@ -80,6 +83,7 @@ export type Command =
       /** Move only these units, splitting them off; default the whole stack. */
       unitIds?: string[];
     }
+  // Later milestones.
   | { type: 'SetProduction'; playerId: PlayerId; siteId: string; unitTypeId: string | null }
   | { type: 'Explore'; playerId: PlayerId; stackId: string };
 

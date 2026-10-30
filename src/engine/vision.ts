@@ -79,6 +79,6 @@ export function viewFor(state: GameState, content: ContentPack, playerId: Player
 
 function cloneStack(stack: Stack): Stack {
   const copy: Stack = { ...stack, pos: { ...stack.pos }, unitIds: [...stack.unitIds], stance: { ...stack.stance } };
-  if (stack.route) copy.route = stack.route.map((h) => ({ ...h }));
+  if (stack.destination) copy.destination = { ...stack.destination };
   return copy;
 }

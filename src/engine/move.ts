@@ -1,7 +1,7 @@
 // The Move command: walk a path, paying terrain and zone-of-control costs,
 // splitting off units and merging onto a friendly stack as needed. A move goes
-// as far as movement allows and keeps the rest as the stack's route; it stops
-// early when a step brings a new enemy stack into view.
+// as far as movement allows and saves the path's end as the stack's
+// destination; it stops early when a step brings a new enemy stack into view.
 
 import type { ContentPack } from './content';
 import { hexDistance, hexesWithin, hexKey, type Hex, sameHex } from './hex';
@@ -68,9 +68,9 @@ export function applyMove(state: GameState, command: MoveCommand, content: Conte
     if (stopped === 'movement' && spent === 0) return { error: 'Not enough movement for the first step' };
     return { error: 'The move cannot end there: a stack holds at most 8 units' };
   }
-  if (stop.index < path.length - 1) stopped ??= 'blocked';
+  const unfinished = stop.index < path.length - 1;
+  if (unfinished) stopped ??= 'blocked';
   const end = path[stop.index]!;
-  const rest = path.slice(stop.index + 1);
 
   const units = { ...state.units };
   for (const id of unitIds) units[id] = { ...units[id]!, moveLeft: units[id]!.moveLeft - stop.spent };
@@ -84,8 +84,8 @@ export function applyMove(state: GameState, command: MoveCommand, content: Conte
     stacks[stack.id] = { ...stack, unitIds: stack.unitIds.filter((id) => !unitIds.includes(id)) };
     moving = { id: `s${nextId++}`, owner: stack.owner, pos: end, unitIds: [...unitIds], stance: { ...stack.stance } };
   }
-  delete moving.route;
-  if (rest.length > 0) moving.route = rest;
+  delete moving.destination;
+  if (unfinished) moving.destination = last;
 
   const report: MoveReport = { kind: 'moved', stackId: moving.id, from: stack.pos, path: path.slice(0, stop.index + 1) };
   if (stopped) report.stopped = stopped;

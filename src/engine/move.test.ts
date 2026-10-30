@@ -33,12 +33,12 @@ describe('Move', () => {
     expect(s.stacks.s1!.pos).toEqual(at(0, 0)); // input untouched
   });
 
-  it('goes as far as movement allows and keeps the rest as a route', () => {
+  it('goes as far as movement allows and saves the destination', () => {
     const s = game(plainsMap(8, 1), [{ owner: 'dw', pos: at(0, 0), units: ['infantry'] }]);
     const path = [1, 2, 3, 4, 5, 6].map((c) => at(c, 0));
     const { state, events } = run(s, move('s1', path));
     expect(state.stacks.s1!.pos).toEqual(at(4, 0));
-    expect(state.stacks.s1!.route).toEqual([at(5, 0), at(6, 0)]);
+    expect(state.stacks.s1!.destination).toEqual(at(6, 0));
     expect(events[0]).toMatchObject({ stopped: 'movement' });
     expect(err(state, move('s1', [at(5, 0)]))).toMatch(/movement/i);
   });
@@ -68,10 +68,11 @@ describe('Move', () => {
       { owner: 'dw', pos: at(0, 0), units: ['cavalry'] },
       { owner: 'orc', pos: at(5, 0), units: ['militia'] },
     ]);
-    const { state, events } = run(s, move('s1', [1, 2, 3].map((c) => at(c, 0))));
-    // At (3,0) the orcs at (5,0) come into view: stop there with the route kept.
+    const { state, events } = run(s, move('s1', [1, 2, 3, 4].map((c) => at(c, 0))));
+    // At (3,0) the orcs at (5,0) come into view: stop there, keeping the destination.
     expect(state.stacks.s1!.pos).toEqual(at(3, 0));
     expect(events[0]).toMatchObject({ stopped: 'spotted' });
+    expect(state.stacks.s1!.destination).toEqual(at(4, 0));
     // Not spotted after the first step (they are 4 away), so it got that far.
     expect(state.units.u1!.moveLeft).toBe(12 - 6);
   });
@@ -110,11 +111,14 @@ describe('Move', () => {
     ]);
     const merged = run(s, move('s1', [at(1, 0), at(2, 0), at(3, 0)])).state;
     expect(merged.stacks.s2!.unitIds).toEqual(['u2', 'u1']);
-    // u1 has 2 left: one plains hex, then the rest of the path becomes the route.
+    // u1 has 2 left: one plains hex; the end of the path is saved as the destination.
     const moved = run(merged, move('s2', [at(4, 0), at(5, 0)]));
     expect(moved.state.stacks.s2!.pos).toEqual(at(4, 0));
     expect(moved.events[0]).toMatchObject({ stopped: 'movement' });
-    expect(moved.state.stacks.s2!.route).toEqual([at(5, 0)]);
+    expect(moved.state.stacks.s2!.destination).toEqual(at(5, 0));
+    // Reaching it (next turn) clears it.
+    const next = run(run(moved.state, { type: 'EndTurn', playerId: 'dw' }).state, { type: 'EndTurn', playerId: 'orc' }).state;
+    expect(run(next, move('s2', [at(5, 0)])).state.stacks.s2!.destination).toBeUndefined();
   });
 
   it('pays the zone-of-control tax when sliding past a seen enemy', () => {
