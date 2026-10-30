@@ -1,6 +1,6 @@
 {
   "elves": { "name": "Elves", "traits": ["forest-native"], "uniqueUnit": "rangers" },
   "dwarves": { "name": "Dwarves", "traits": ["mountain-walker"], "uniqueUnit": "ironguard" },
-  "horse-clans": { "name": "Horse Clans", "traits": ["mounted-fast-build", "plains-charge"] },
+  "horse-clans": { "name": "Horse Clans", "traits": ["mounted-fast-build", "mounted-plains-charge"], "uniqueUnit": "horse-archers" },
   "orc-horde": { "name": "Orc Horde", "traits": ["cheap-foot", "double-pillage"], "uniqueUnit": "trolls" }
 }

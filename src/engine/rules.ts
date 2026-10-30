@@ -12,6 +12,8 @@ export const RULES = {
   maxBonusPct: 50,
   /** Penalties never drop Strength below half. */
   minBonusPct: -50,
+  /** Upkeep per turn as a percentage of base price (rounded, minimum 1). */
+  upkeepPct: 12,
   /** Units per stack. */
   maxStackSize: 8,
 } as const;

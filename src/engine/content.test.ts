@@ -1,21 +1,46 @@
 import { describe, expect, it } from 'vitest';
 import { fantasy } from '../content/fantasy';
-import { loadContent } from './content';
+import { loadContent, upkeepFor } from './content';
 
 describe('fantasy content pack', () => {
   it('matches the shared roster in DESIGN.md', () => {
-    const roster: [string, number, number, number, number, number][] = [
-      // id, Strength, Hits, Move, Cost, Build
-      ['militia', 2, 2, 8, 8, 1],
-      ['archers', 3, 2, 8, 15, 1],
-      ['infantry', 4, 2, 8, 16, 1],
-      ['cavalry', 4, 2, 12, 20, 2],
-      ['siege-engine', 2, 2, 6, 20, 2],
-      ['griffins', 5, 2, 16, 30, 3],
+    const roster: [string, number, number, number, number, number, number][] = [
+      // id, Strength, Hits, Move, Cost, Build, Upkeep
+      ['militia', 2, 2, 8, 8, 1, 1],
+      ['archers', 3, 2, 8, 15, 1, 2],
+      ['infantry', 4, 2, 8, 16, 1, 2],
+      ['cavalry', 4, 2, 12, 20, 2, 2],
+      ['siege-engine', 2, 2, 6, 20, 2, 2],
+      ['griffins', 5, 2, 16, 30, 3, 4],
     ];
-    for (const [id, strength, hits, move, cost, buildTurns] of roster) {
-      expect(fantasy.units[id]).toMatchObject({ id, strength, hits, move, cost, buildTurns });
+    for (const [id, strength, hits, move, cost, buildTurns, upkeep] of roster) {
+      expect(fantasy.units[id]).toMatchObject({ id, strength, hits, move, cost, buildTurns, upkeep });
     }
+  });
+
+  it('matches the unique units table in DESIGN.md', () => {
+    const uniques: [string, string, number, number, number, number, number, number][] = [
+      // id, faction, Strength, Hits, Move, Cost, Build (before traits), Upkeep
+      ['rangers', 'elves', 4, 2, 8, 24, 2, 3],
+      ['ironguard', 'dwarves', 5, 3, 6, 30, 2, 4],
+      ['horse-archers', 'horse-clans', 3, 2, 12, 18, 2, 2],
+      ['trolls', 'orc-horde', 5, 3, 8, 38, 2, 5],
+    ];
+    for (const [id, faction, strength, hits, move, cost, buildTurns, upkeep] of uniques) {
+      expect(fantasy.units[id]).toMatchObject({ id, strength, hits, move, cost, buildTurns, upkeep });
+      expect(fantasy.factions[faction]!.uniqueUnit).toBe(id);
+    }
+    expect(fantasy.units['horse-archers']).toMatchObject({ pursuitStrikes: 2 });
+    expect(fantasy.units['horse-archers']!.tags).toContain('mounted');
+    expect(fantasy.units.rangers!.tags).toContain('defense-bonus');
+  });
+
+  it('lists upkeep as 12% of the price, rounded, minimum 1; heroes pay none', () => {
+    for (const u of Object.values(fantasy.units)) {
+      if (u.cost === undefined) expect(u.upkeep).toBeUndefined();
+      else expect(u.upkeep).toBe(upkeepFor(u.cost));
+    }
+    expect(fantasy.units.hero!.upkeep).toBeUndefined();
   });
 
   it('has the base hero and the faction uniques', () => {
@@ -45,6 +70,11 @@ describe('loadContent validation', () => {
     expect(() => loadContent(bad)).toThrow(/strength/);
     const noHits = { ...good, units: { a: { name: 'A', strength: 3, hits: 1.5, move: 8, tags: [] } } };
     expect(() => loadContent(noHits)).toThrow(/hits/);
+  });
+
+  it('rejects a bad pursuit strike count', () => {
+    const bad = { ...good, units: { a: { name: 'A', strength: 3, hits: 2, move: 8, tags: [], pursuitStrikes: 0 } } };
+    expect(() => loadContent(bad)).toThrow(/pursuitStrikes/);
   });
 
   it('rejects a faction whose unique unit does not exist', () => {

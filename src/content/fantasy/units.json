@@ -1,12 +1,13 @@
 {
-  "militia": { "name": "Militia", "strength": 2, "hits": 2, "move": 8, "cost": 8, "buildTurns": 1, "tags": [] },
-  "archers": { "name": "Archers", "strength": 3, "hits": 2, "move": 8, "cost": 15, "buildTurns": 1, "tags": ["defense-bonus"] },
-  "infantry": { "name": "Infantry", "strength": 4, "hits": 2, "move": 8, "cost": 16, "buildTurns": 1, "tags": [] },
-  "cavalry": { "name": "Cavalry", "strength": 4, "hits": 2, "move": 12, "cost": 20, "buildTurns": 2, "tags": ["mounted"] },
-  "siege-engine": { "name": "Siege engine", "strength": 2, "hits": 2, "move": 6, "cost": 20, "buildTurns": 2, "tags": ["siege"] },
-  "griffins": { "name": "Griffins", "strength": 5, "hits": 2, "move": 16, "cost": 30, "buildTurns": 3, "tags": ["flying"] },
-  "hero": { "name": "Hero", "strength": 5, "hits": 3, "move": 10, "tags": ["commander", "leads-stack"] },
-  "rangers": { "name": "Rangers", "strength": 4, "hits": 2, "move": 8, "tags": ["defense-bonus", "forest-zoc-immune"] },
-  "ironguard": { "name": "Ironguard", "strength": 5, "hits": 3, "move": 6, "tags": [] },
-  "trolls": { "name": "Trolls", "strength": 5, "hits": 3, "move": 8, "tags": ["regenerates"] }
+  "militia": {"name": "Militia", "strength": 2, "hits": 2, "move": 8, "cost": 8, "buildTurns": 1, "upkeep": 1, "tags": []},
+  "archers": {"name": "Archers", "strength": 3, "hits": 2, "move": 8, "cost": 15, "buildTurns": 1, "upkeep": 2, "tags": ["defense-bonus"]},
+  "infantry": {"name": "Infantry", "strength": 4, "hits": 2, "move": 8, "cost": 16, "buildTurns": 1, "upkeep": 2, "tags": []},
+  "cavalry": {"name": "Cavalry", "strength": 4, "hits": 2, "move": 12, "cost": 20, "buildTurns": 2, "upkeep": 2, "tags": ["mounted"]},
+  "siege-engine": {"name": "Siege engine", "strength": 2, "hits": 2, "move": 6, "cost": 20, "buildTurns": 2, "upkeep": 2, "tags": ["siege"]},
+  "griffins": {"name": "Griffins", "strength": 5, "hits": 2, "move": 16, "cost": 30, "buildTurns": 3, "upkeep": 4, "tags": ["flying"]},
+  "hero": {"name": "Hero", "strength": 5, "hits": 3, "move": 10, "tags": ["commander", "leads-stack"]},
+  "rangers": {"name": "Rangers", "strength": 4, "hits": 2, "move": 8, "cost": 24, "buildTurns": 2, "upkeep": 3, "tags": ["defense-bonus", "forest-zoc-immune"]},
+  "ironguard": {"name": "Ironguard", "strength": 5, "hits": 3, "move": 6, "cost": 30, "buildTurns": 2, "upkeep": 4, "tags": []},
+  "horse-archers": {"name": "Horse Archers", "strength": 3, "hits": 2, "move": 12, "cost": 18, "buildTurns": 2, "upkeep": 2, "pursuitStrikes": 2, "tags": ["mounted"]},
+  "trolls": {"name": "Trolls", "strength": 5, "hits": 3, "move": 8, "cost": 38, "buildTurns": 2, "upkeep": 5, "tags": ["regenerates"]}
 }

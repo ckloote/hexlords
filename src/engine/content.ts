@@ -1,6 +1,8 @@
 // Content packs hold every name and stat. The engine only knows generic tags
 // (see TAGS), so a reskin is a new pack with no engine changes.
 
+import { RULES } from './rules';
+
 export const TAGS = {
   /** A commander: hired rather than built (milestone 6). */
   commander: 'commander',
@@ -24,7 +26,16 @@ export interface UnitType {
   /** Gold cost; absent for units that are never built (commanders, allies) or not yet priced. */
   cost?: number;
   buildTurns?: number;
+  /** Gold per turn; see upkeepFor. Absent for units that pay none (commanders). */
+  upkeep?: number;
+  /** Strikes when pursuing a withdrawing stack; default 1. */
+  pursuitStrikes?: number;
   tags: string[];
+}
+
+/** Upkeep rule from DESIGN.md: 12% of the base price, rounded, minimum 1. */
+export function upkeepFor(cost: number): number {
+  return Math.max(1, Math.round((cost * RULES.upkeepPct) / 100));
 }
 
 export interface Faction {
@@ -84,6 +95,8 @@ export function loadContent(raw: unknown): ContentPack {
     };
     if (o.cost !== undefined) unit.cost = num(o.cost, at('cost'));
     if (o.buildTurns !== undefined) unit.buildTurns = num(o.buildTurns, at('buildTurns'), { integer: true });
+    if (o.upkeep !== undefined) unit.upkeep = num(o.upkeep, at('upkeep'), { integer: true });
+    if (o.pursuitStrikes !== undefined) unit.pursuitStrikes = num(o.pursuitStrikes, at('pursuitStrikes'), { integer: true });
     units[id] = unit;
   }
   const factions: Record<string, Faction> = {};
