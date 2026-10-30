@@ -35,6 +35,25 @@ describe('loadTiledMap', () => {
     expect(map.sites).toHaveLength(4);
   });
 
+  it('reads build lists and victory rules', () => {
+    expect(siteAt(map, fromOffset(6, 14))!.builds).toEqual(['militia', 'archers', 'infantry', 'siege-engine', 'ironguard']);
+    expect(siteAt(map, fromOffset(12, 4))!.builds).toEqual(['militia', 'griffins']);
+    expect(map.victory).toEqual({ turnLimit: 40, domination: 0.7 });
+    const bare = clone(testMapJson) as Record<string, unknown>;
+    delete bare.properties;
+    expect(loadTiledMap(bare, fantasy).victory).toEqual({ turnLimit: 40, domination: 0.5 });
+  });
+
+  it('rejects cities that build unknown or unbuildable units', () => {
+    const setBuilds = (value: string) => {
+      const raw = clone(testMapJson) as { layers: { objects?: { properties: { name: string; value: string }[] }[] }[] };
+      raw.layers[2]!.objects![0]!.properties.find((p) => p.name === 'builds')!.value = value;
+      return raw;
+    };
+    expect(() => loadTiledMap(setBuilds('militia,dragons'), fantasy)).toThrow(/dragons/);
+    expect(() => loadTiledMap(setBuilds('hero'), fantasy)).toThrow(/hero/);
+  });
+
   it('is JSON-safe', () => {
     expect(clone(map)).toEqual(map);
   });

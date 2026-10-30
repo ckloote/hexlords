@@ -1,7 +1,7 @@
 // The map: terrain per hex, roads/bridges/fords, and sites. Plain JSON data.
 
 import { type Hex, fromOffset, hexKey, toOffset } from './hex';
-import type { PlayerId } from './types';
+import type { CityState, PlayerId, World } from './types';
 
 export type Feature = 'road' | 'bridge' | 'ford';
 export type CityTier = 'village' | 'city' | 'capital';
@@ -11,12 +11,22 @@ export interface Site {
   kind: 'city';
   name: string;
   pos: Hex;
+  /** Starting tier; the current tier lives in the game state (World.cities). */
   tier: CityTier;
   /**
    * Owner when the game begins; null for neutral. Current ownership lives in
-   * the game state (World.cityOwners); never read this during play.
+   * the game state (World.cities); never read this during play.
    */
   startOwner: PlayerId | null;
+  /** Unit type ids this city can build. */
+  builds: string[];
+}
+
+/** How a map is won: domination share of the total income, and the last turn. */
+export interface VictoryRules {
+  turnLimit: number;
+  /** Share of the map's total income a player must hold secured (0..1). */
+  domination: number;
 }
 
 export interface MapState {
@@ -27,6 +37,7 @@ export interface MapState {
   /** Keyed by hexKey. */
   features: Record<string, Feature>;
   sites: Site[];
+  victory: VictoryRules;
 }
 
 export function inBounds(map: MapState, h: Hex): boolean {
@@ -59,4 +70,11 @@ export function allHexes(map: MapState): Hex[] {
   const out: Hex[] = [];
   for (let row = 0; row < map.height; row++) for (let col = 0; col < map.width; col++) out.push(fromOffset(col, row));
   return out;
+}
+
+/** The city on `h` with its play state, or undefined. Razed sites are returned too; check `state.razed`. */
+export function cityAt(world: World, h: Hex): { site: Site; state: CityState } | undefined {
+  const site = siteAt(world.map, h);
+  const state = site && world.cities[site.id];
+  return site && state ? { site, state } : undefined;
 }

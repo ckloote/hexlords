@@ -40,8 +40,8 @@ describe('vision', () => {
   it('takes city ownership from the game state, not the map file', () => {
     const map = asciiMap(['.....', '.....', '.....'], [{ at: at(0, 0), tier: 'village', owner: 'orc' }]);
     const s = game(map, [{ owner: 'dw', pos: at(4, 2), units: ['infantry'] }]);
-    expect(s.cityOwners).toEqual({ c0: 'orc' });
-    const changed = { ...s, cityOwners: { c0: 'dw' } };
+    expect(s.cities.c0).toMatchObject({ owner: 'orc', tier: 'village', secured: true });
+    const changed = { ...s, cities: { c0: { ...s.cities.c0!, owner: 'dw' } } };
     expect(visibleHexes(changed, fantasy, 'dw').has(hexKey(at(0, 0)))).toBe(true);
     expect(visibleHexes(changed, fantasy, 'orc').has(hexKey(at(0, 0)))).toBe(false);
   });
@@ -75,7 +75,27 @@ describe('viewFor', () => {
     expect('rng' in view).toBe(false);
     expect(view.explored.length).toBeGreaterThan(0);
     expect(view.visible).toContain(hexKey(at(3, 1)));
-    expect(view.cityOwners).toEqual(s.cityOwners);
+    expect(view.cities).toEqual(s.cities);
+    expect(view.gold).toBe(s.gold.dw);
+  });
+
+  it('hides other players\' production and gold', () => {
+    const map = asciiMap(['.....', '.....'], [{ at: at(0, 0), tier: 'city', owner: 'dw' }, { at: at(4, 1), tier: 'city', owner: 'orc' }]);
+    const g = game(map, [{ owner: 'dw', pos: at(1, 0), units: ['infantry'] }]);
+    const gold: Record<string, number> = { dw: 7, orc: 99 };
+    const building = {
+      ...g,
+      gold,
+      cities: Object.fromEntries(Object.entries(g.cities).map(([id, c]) => [id, { ...c, production: { unitTypeId: 'militia', progress: 0 } }])),
+    };
+    expect(Object.keys(building.cities)).toHaveLength(2);
+    for (const viewer of ['dw', 'orc']) {
+      const view = viewFor(building, fantasy, viewer);
+      expect(view.gold).toBe(building.gold[viewer]);
+      for (const [id, c] of Object.entries(view.cities)) {
+        expect(c.production).toEqual(building.cities[id]!.owner === viewer ? { unitTypeId: 'militia', progress: 0 } : null);
+      }
+    }
   });
 
   it('is plain data and leaves the state alone', () => {

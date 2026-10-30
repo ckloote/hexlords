@@ -18,6 +18,8 @@ export interface GameSetup {
   seed: number | string;
   map: MapState;
   players: { id: string; factionId: string }[];
+  /** Gold each player starts with; default RULES.startingGold. */
+  startingGold?: number;
   stacks: {
     owner: string;
     pos: Hex;
@@ -41,19 +43,29 @@ export function createGame(setup: GameSetup, content: ContentPack): GameState {
       return { id: p.id, factionId: p.factionId, eliminated: false };
     }),
     map: setup.map,
-    cityOwners: {},
+    cities: {},
     stacks: {},
     units: {},
     explored: {},
     nextId: 1,
+    gold: {},
   };
   if (state.players.length === 0) throw new Error('A game needs players');
+  for (const p of state.players) state.gold[p.id] = setup.startingGold ?? RULES.startingGold;
   for (const site of setup.map.sites) {
     const owner = site.startOwner;
     if (owner !== null && !state.players.some((p) => p.id === owner)) {
       throw new Error(`City ${site.name} belongs to unknown player "${owner}"`);
     }
-    state.cityOwners[site.id] = owner;
+    // Starting cities count as secured from the first turn.
+    state.cities[site.id] = {
+      owner,
+      tier: site.tier,
+      razed: false,
+      production: null,
+      heldSince: owner === null ? null : 0,
+      secured: owner !== null,
+    };
   }
   let nextUnit = 1;
   for (const s of setup.stacks) {
@@ -242,6 +254,8 @@ function attack(
 
   const report: BattleReport = {
     kind: 'battle',
+    attackerOwner: attacker.owner,
+    defenderOwner: defender.owner,
     attackerStackId: attacker.id,
     defenderStackId: defender.id,
     attackerUnitIds: [...attacker.unitIds],

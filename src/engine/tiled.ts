@@ -3,9 +3,12 @@
 // - a tile layer "terrain" whose tiles carry a string property "terrain"
 // - an optional tile layer "features" whose tiles carry "feature" (road, bridge, ford)
 // - an object group "objects" with point objects of type/class "city" at hex
-//   centers, with properties "tier" (village, city, capital) and optional "owner"
+//   centers, with properties "tier" (village, city, capital), optional "owner",
+//   and "builds" (comma-separated unit type ids the city can produce)
+// - optional map properties "turnLimit" (integer) and "domination" (share, 0..1)
 
 import { type ContentPack, FEATURES } from './content';
+import { RULES } from './rules';
 import { fromOffset } from './hex';
 import { type CityTier, type Feature, hexKeyOf, inBounds, type MapState, type Site } from './map';
 
@@ -88,7 +91,14 @@ export function loadTiledMap(json: unknown, content: ContentPack): MapState {
     });
   }
 
-  const map: MapState = { width, height, terrain, features, sites: [] };
+  const mapProps = props(m.properties);
+  const turnLimit = mapProps.turnLimit ?? RULES.turnLimit;
+  const domination = mapProps.domination ?? RULES.dominationShare;
+  if (!Number.isInteger(turnLimit) || (turnLimit as number) < 1) fail('turnLimit must be a positive integer');
+  if (typeof domination !== 'number' || !(domination > 0 && domination <= 1)) fail('domination must be a share in (0, 1]');
+  const victory = { turnLimit: turnLimit as number, domination };
+
+  const map: MapState = { width, height, terrain, features, sites: [], victory };
   const rowHeight = (tileH + side) / 2;
   for (const raw of asArray(layer('objects')?.objects ?? [], 'objects')) {
     const o = asObj(raw, 'object');
@@ -101,6 +111,11 @@ export function loadTiledMap(json: unknown, content: ContentPack): MapState {
     const p = props(o.properties);
     const tier = p.tier as CityTier;
     if (!TIERS.includes(tier)) fail(`city ${String(o.name)} has bad tier "${String(p.tier)}"`);
+    const builds = typeof p.builds === 'string' ? p.builds.split(',').map((b) => b.trim()).filter(Boolean) : [];
+    for (const b of builds) {
+      const type = content.units[b];
+      if (!type || type.cost === undefined || type.buildTurns === undefined) fail(`city ${String(o.name)} builds unbuildable unit "${b}"`);
+    }
     const site: Site = {
       id: `site${String(o.id)}`,
       kind: 'city',
@@ -108,6 +123,7 @@ export function loadTiledMap(json: unknown, content: ContentPack): MapState {
       pos,
       tier,
       startOwner: typeof p.owner === 'string' && p.owner ? p.owner : null,
+      builds,
     };
     map.sites.push(site);
   }

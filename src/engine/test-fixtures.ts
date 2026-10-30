@@ -26,10 +26,11 @@ const LEGEND: Record<string, [string, Feature?]> = {
  */
 export function asciiMap(
   rows: string[],
-  cities: { at: Hex; tier: CityTier; owner?: string; name?: string }[] = [],
+  cities: { at: Hex; tier: CityTier; owner?: string; name?: string; builds?: string[] }[] = [],
+  victory: MapState['victory'] = { turnLimit: 40, domination: 0.5 },
 ): MapState {
   const width = rows[0]!.length;
-  const map: MapState = { width, height: rows.length, terrain: [], features: {}, sites: [] };
+  const map: MapState = { width, height: rows.length, terrain: [], features: {}, sites: [], victory };
   rows.forEach((line, row) => {
     if (line.length !== width) throw new Error(`row ${row} has the wrong width`);
     [...line].forEach((ch, col) => {
@@ -39,7 +40,15 @@ export function asciiMap(
     });
   });
   cities.forEach((c, k) =>
-    map.sites.push({ id: `c${k}`, kind: 'city', name: c.name ?? `City ${k}`, pos: c.at, tier: c.tier, startOwner: c.owner ?? null }),
+    map.sites.push({
+      id: `c${k}`,
+      kind: 'city',
+      name: c.name ?? `City ${k}`,
+      pos: c.at,
+      tier: c.tier,
+      startOwner: c.owner ?? null,
+      builds: c.builds ?? [],
+    }),
   );
   return map;
 }

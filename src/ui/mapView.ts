@@ -116,7 +116,7 @@ export class MapView {
     const layer = new Container();
     for (const site of view.map.sites) {
       const c = hexToPixel(site.pos);
-      const owner = view.cityOwners[site.id];
+      const owner = view.cities[site.id]?.owner;
       const faction = view.players.find((p) => p.id === owner)?.factionId;
       const ring = faction ? this.theme.factions[faction]!.color : this.theme.ui.neutral;
       const size = site.tier === 'village' ? 9 : site.tier === 'city' ? 12 : 14;
