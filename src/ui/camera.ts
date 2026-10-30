@@ -48,6 +48,8 @@ export class Camera {
   }
 
   private down = (e: PointerEvent) => {
+    // Buttons and panels laid over the map handle their own clicks.
+    if (!(e.target instanceof HTMLCanvasElement)) return;
     this.el.setPointerCapture(e.pointerId);
     this.pointers.set(e.pointerId, this.local(e));
     if (this.pointers.size === 1) this.moved = 0;

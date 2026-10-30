@@ -18,16 +18,27 @@ export interface Selection {
   reach: Reach;
 }
 
+/** A planned move or attack drawn over the map. */
+export interface Plan {
+  /** From the stack's hex through each step. */
+  path: Hex[];
+  /** Turn-end markers: where each turn's movement ends (1-based turn numbers). */
+  markers: { hex: Hex; turn: number }[];
+  /** An enemy stack about to be attacked. */
+  target?: Hex;
+}
+
 export class MapView {
   /** Everything on the map; the camera moves and scales this. */
   readonly world = new Container();
   private terrain = new Container();
   private overlay = new Graphics();
+  private plan = new Container();
   private fog = new Graphics();
   private stacks = new Container();
 
   constructor(private theme: Theme) {
-    this.world.addChild(this.terrain, this.fog, this.overlay, this.stacks);
+    this.world.addChild(this.terrain, this.fog, this.overlay, this.stacks, this.plan);
   }
 
   /** Draws the static layers (terrain, roads, crossings, cities). Call once per map. */
@@ -125,7 +136,7 @@ export class MapView {
   }
 
   /** Draws what changes: fog, stacks, and the selection overlay. */
-  drawState(view: PlayerView, selection: Selection | null): void {
+  drawState(view: PlayerView, selection: Selection | null, plan: Plan | null = null): void {
     const visible = new Set(view.visible);
     this.fog.clear();
     for (const h of allHexes(view.map)) {
@@ -134,6 +145,39 @@ export class MapView {
     this.drawOverlay(selection);
     this.stacks.removeChildren();
     for (const stack of Object.values(view.stacks)) this.stacks.addChild(this.drawStack(view, stack, stack.id === selection?.stackId));
+    this.drawPlan(plan);
+  }
+
+  private drawPlan(plan: Plan | null): void {
+    this.plan.removeChildren();
+    if (!plan) return;
+    const g = new Graphics();
+    const color = this.theme.ui.path;
+    if (plan.path.length > 1) {
+      const pts = plan.path.map((h) => hexToPixel(h));
+      g.moveTo(pts[0]!.x, pts[0]!.y);
+      for (const p of pts.slice(1)) g.lineTo(p.x, p.y);
+      g.stroke({ width: 5, color: '#15171B', alpha: 0.5, cap: 'round', join: 'round' });
+      g.moveTo(pts[0]!.x, pts[0]!.y);
+      for (const p of pts.slice(1)) g.lineTo(p.x, p.y);
+      g.stroke({ width: 3, color, cap: 'round', join: 'round' });
+    }
+    if (plan.target) {
+      const c = hexToPixel(plan.target);
+      g.circle(c.x, c.y, 20).stroke({ width: 3, color: this.theme.ui.danger });
+    }
+    this.plan.addChild(g);
+    for (const m of plan.markers) {
+      const c = hexToPixel(m.hex);
+      const dot = new Graphics().circle(c.x, c.y, 9).fill(color).stroke({ width: 2, color: '#15171B' });
+      const n = new Text({
+        text: String(m.turn),
+        style: { fontFamily: 'Source Sans 3, system-ui, sans-serif', fontSize: 11, fontWeight: '700', fill: '#1A1508' },
+      });
+      n.anchor.set(0.5);
+      n.position.set(c.x, c.y);
+      this.plan.addChild(dot, n);
+    }
   }
 
   private drawOverlay(selection: Selection | null): void {
