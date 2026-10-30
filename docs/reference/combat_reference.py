@@ -15,10 +15,19 @@ Rules modelled (see DESIGN.md, Combat and Retreat sections):
 - Retreat checks happen only between duels (right after any unit dies), and
   only while both sides still have units. The attacker withdraws if the exact
   win probability of fighting on (Hold) from that state is below the threshold.
-- On withdrawal, pursuit: the defender's fastest surviving unit (ties: the
-  strongest) strikes the attacker's weakest surviving unit once, with
-  probability P / (P + T). It kills only if the target has 1 hit left.
-  No pursuit if every surviving attacker is at least as fast as the pursuer.
+- A defender with a Fall back threshold (field stacks only; city garrisons and
+  Hold stacks never withdraw) gets the mirror-image check at the same moments:
+  it withdraws if its own win chance, 1 - P(attacker wins on Hold), is below
+  its threshold. The attacker's check runs first, so if both would withdraw,
+  the attacker does.
+- On withdrawal, pursuit: the other side's fastest surviving unit (ties: the
+  strongest, then the first in fight order) strikes the withdrawing side's
+  weakest surviving unit once, with probability P / (P + T). It kills only if
+  the target has 1 hit left. No pursuit if every surviving unit of the
+  withdrawing side is at least as fast as the pursuer.
+- Not modelled yet: whether a legal retreat hex exists (with none, that side
+  cannot withdraw, so its check is skipped), and units that strike more than
+  once when pursuing.
 """
 
 from dataclasses import dataclass
@@ -60,31 +69,41 @@ def make_battle(attackers, defenders):
         lose = p_win(i, ha - 1, j, hd) if ha > 1 else p_win(i + 1, a_hits(i + 1), j, hd)
         return p * win + (1 - p) * lose
 
-    def withdraw(i, ha, j):
-        """Outcome tuple for a withdrawal from this state, including pursuit."""
-        alive = nA - i
-        pursuers = [D[k] for k in range(j, nD)]
+    def pursuit_kill_chance(pursuers, withdrawing, front_hits):
+        """Chance the pursuit strike kills the withdrawing side's front unit."""
         pursuer = max(pursuers, key=lambda u: (u.move, u.strength))
-        clean_break = all(A[k].move >= pursuer.move for k in range(i, nA))
-        if not clean_break and ha == 1:
-            target = A[i]
-            alive -= pursuer.strength / (pursuer.strength + target.strength)
-        return (0.0, 1.0, 0.0, alive, nD - j)
+        clean_break = all(u.move >= pursuer.move for u in withdrawing)
+        if clean_break or front_hits != 1:
+            return 0.0
+        target = withdrawing[0]
+        return pursuer.strength / (pursuer.strength + target.strength)
+
+    def attacker_withdraws(i, ha, j):
+        alive = nA - i - pursuit_kill_chance(D[j:], A[i:], ha)
+        return (0.0, 1.0, 0.0, 0.0, alive, nD - j)
+
+    def defender_withdraws(i, j, hd):
+        alive = nD - j - pursuit_kill_chance(A[i:], D[j:], hd)
+        return (0.0, 0.0, 0.0, 1.0, nA - i, alive)
 
     @lru_cache(maxsize=None)
-    def play(i, ha, j, hd, threshold):
-        """(P win, P withdraw, P destroyed, E attackers alive, E defenders alive)."""
+    def play(i, ha, j, hd, threshold, defender_threshold):
+        """(P win, P withdraw, P destroyed, P defender withdraws,
+        E attackers alive, E defenders alive)."""
         if j == nD:
-            return (1.0, 0.0, 0.0, nA - i, 0)
+            return (1.0, 0.0, 0.0, 0.0, nA - i, 0)
         if i == nA:
-            return (0.0, 0.0, 1.0, 0, nD - j)
+            return (0.0, 0.0, 1.0, 0.0, 0, nD - j)
         p = A[i].strength / (A[i].strength + D[j].strength)
 
         def next_state(i2, ha2, j2, hd2, after_death):
-            if (after_death and threshold is not None and i2 < nA and j2 < nD
-                    and p_win(i2, ha2, j2, hd2) < threshold):
-                return withdraw(i2, ha2, j2)
-            return play(i2, ha2, j2, hd2, threshold)
+            if after_death and i2 < nA and j2 < nD:
+                pw = p_win(i2, ha2, j2, hd2)
+                if threshold is not None and pw < threshold:
+                    return attacker_withdraws(i2, ha2, j2)
+                if defender_threshold is not None and 1 - pw < defender_threshold:
+                    return defender_withdraws(i2, j2, hd2)
+            return play(i2, ha2, j2, hd2, threshold, defender_threshold)
 
         if hd > 1:
             win = next_state(i, ha, j, hd - 1, False)
@@ -99,8 +118,8 @@ def make_battle(attackers, defenders):
     def hold_probability():
         return p_win(0, A[0].hits, 0, D[0].hits)
 
-    def outcome(threshold=None):
-        return play(0, A[0].hits, 0, D[0].hits, threshold)
+    def outcome(threshold=None, defender_threshold=None):
+        return play(0, A[0].hits, 0, D[0].hits, threshold, defender_threshold)
 
     return hold_probability, outcome
 
@@ -151,8 +170,24 @@ def main():
     print("\nGravelmaw attack")
     print(f"  Hold: win {hold():.4f}")
     for threshold in (0.2, 0.25, 0.3, 0.4, 0.5):
-        w, r, x, ea, ed = outcome(threshold)
+        w, r, x, _, ea, ed = outcome(threshold)
         print(f"  Withdraw below {threshold:.0%}: win {w:.4f}, withdraw {r:.4f}, "
+              f"destroyed {x:.4f}, attackers alive {ea:.3f}, defenders alive {ed:.3f}")
+
+    # Field battles where the defender is on Fall back (thresholds are win chances).
+    print("\nField battles with a defender on Fall back")
+    field_cases = [
+        ("3 cavalry (M12) + 2 infantry, Hold, vs 5 infantry on hills (+25%), Fall back 30%",
+         same(4, 2, 3, move=12) + same(4, 2, 2), same(5, 2, 5), None, 0.3),
+        ("4 infantry, Hold, vs 4 cavalry (M12), Fall back 30% (clean break)",
+         same(4, 2, 4), same(4, 2, 4, move=12), None, 0.3),
+        ("4 vs 4 infantry, attacker withdraws below 30%, defender Fall back 30%",
+         same(4, 2, 4), same(4, 2, 4), 0.3, 0.3),
+    ]
+    for name, a, d, t_att, t_def in field_cases:
+        _, outcome = make_battle(a, d)
+        w, r, x, dw, ea, ed = outcome(t_att, t_def)
+        print(f"  {name}\n    win {w:.4f}, defender withdraws {dw:.4f}, attacker withdraws {r:.4f}, "
               f"destroyed {x:.4f}, attackers alive {ea:.3f}, defenders alive {ed:.3f}")
 
 

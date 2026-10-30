@@ -114,6 +114,7 @@ A losing stack can retreat to save its survivors, but it pays with a pursuit str
   - **Hold:** fight to the last unit.
   - **Fall back:** retreat if win chance drops below a set threshold.
   - **Evade:** avoid battle with a stronger stack, only if at least as fast as the attacker.
+- A defender on Fall back gets the mirror-image check at the same moments: it withdraws if its own win chance drops below its threshold. The attacker's check runs first, so if both sides would withdraw at once, the attacker does and the defender keeps the hex.
 - Retreat checks happen between duels, never during one. Thresholds use win chance, not units lost: the weakest units fight first and die early in almost any battle. In the mockup's attack on Gravelmaw, "withdraw after losing 2 units" turned 81% odds into a 4% win rate, while "below 30%" keeps 79%.
 
 **Where retreating stacks go**
@@ -124,7 +125,7 @@ A losing stack can retreat to save its survivors, but it pays with a pursuit str
 
 **Pursuit**
 
-- The winner's fastest unit gets one free strike at the retreating stack's weakest surviving unit.
+- The winner's fastest unit (ties: the strongest) gets one free strike at the retreating stack's weakest surviving unit. This works the same whichever side withdraws.
 - The strike lands with the usual chance, P ÷ (P + T), and the target cannot hit back.
 - **Clean break:** no pursuit if every retreating unit is at least as fast as the pursuer.
 - A killing strike removes the unit before the stack reaches its retreat hex.
@@ -422,7 +423,7 @@ The UI is designed for a phone held upright first; landscape and desktop reuse t
 2. Tap a destination. The path shows its true cost, with numbered markers for multi-turn routes.
 3. Tap the destination again to confirm. On desktop, hover shows the path and one click moves.
 
-If the path ends on an enemy, the odds card opens first: chance to win, expected survivors on both sides, each modifier on its own line, and a win-chance threshold for withdrawing. Nothing happens until the player taps Attack.
+If the path ends on an enemy, the odds card opens first: chance to win, expected survivors on both sides, each modifier on its own line, and a win-chance threshold for withdrawing. Nothing happens until the player taps Attack. Against a field stack on Fall back, the outcome bar has a fourth segment for the defender falling back; city attacks never show it.
 
 Undo works until a move reveals something new: fog lifting, a battle, or entering a ruin.
 

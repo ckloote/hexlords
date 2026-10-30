@@ -86,7 +86,15 @@ Win probability for the attacker, fighting to the end; every unit has 2 hits unl
 | Hold | 0.8062 | 0 | 0.1938 | | |
 | Withdraw below 30% | 0.7891 | 0.0738 | 0.1371 | 1.494 | 0.345 |
 
-The exact retreat and pursuit semantics behind these numbers are in the docstring of `docs/reference/combat_reference.py`; match them.
+**Field battles with a defender on Fall back** (thresholds are win chances; the attacker's check runs first).
+
+| Battle | Win | Defender withdraws | Attacker withdraws | Destroyed | Attackers alive | Defenders alive |
+| --- | --- | --- | --- | --- | --- | --- |
+| 3 × 4/2 M12 + 2 × 4/2 M8 (Hold) vs 5 × 5/2 M8, Fall back 30% | 0.0931 | 0.2832 | 0 | 0.6237 | 1.122 | 1.985 |
+| 4 × 4/2 M8 (Hold) vs 4 × 4/2 M12, Fall back 30% (clean break) | 0.0978 | 0.5330 | 0 | 0.3693 | 1.929 | 1.955 |
+| 4 × 4/2 vs 4 × 4/2, attacker 30%, Fall back 30% | 0.0264 | 0.4736 | 0.4736 | 0.0264 | 2.846 | 2.846 |
+
+The exact retreat and pursuit semantics behind these numbers are in the docstring of `docs/reference/combat_reference.py`; match them. Not modelled there yet: retreat-hex availability (a side with no legal retreat hex skips its check; milestone 2) and units that strike more than once when pursuing (Horse Archers; milestone 7).
 
 ## Working style
 
