@@ -100,6 +100,46 @@ describe('computeOdds: field battles with a defender on Fall back', () => {
   }
 });
 
+describe('computeOdds: pursuit strikes (reference)', () => {
+  const two = (strength: number, hits: number, count: number, move = 8) =>
+    same(strength, hits, count, move).map((u) => ({ ...u, pursuitStrikes: 2 }));
+  // [name, attackers, defenders, attacker threshold, defender threshold,
+  //  win, defender withdraws, attacker withdraws, destroyed, attackers alive, defenders alive]
+  const rows: [string, Fighter[], Fighter[], number | undefined, number | undefined, number, number, number, number, number, number][] = [
+    ['vs 2 cavalry, 1 strike', same(4, 2, 4), [...same(4, 2, 3), ...same(4, 2, 2, 12)], 0.5, undefined,
+      0.0684, 0, 0.9219, 0.0098, 2.978, 4.135],
+    ['vs 2 cavalry striking twice', same(4, 2, 4), [...same(4, 2, 3), ...two(4, 2, 2, 12)], 0.5, undefined,
+      0.0684, 0, 0.918, 0.0137, 2.748, 4.135],
+    ['vs 2 Horse Archers', same(4, 2, 4), [...same(4, 2, 3), ...two(3, 2, 2, 12)], 0.5, undefined,
+      0.1093, 0, 0.8752, 0.0155, 2.764, 3.812],
+    ['Horse Archers pursue a defender on Fall back', [...two(3, 2, 3, 12), ...same(4, 2, 2)], same(4, 2, 4), undefined, 0.5,
+      0.0168, 0.859, 0, 0.1242, 3.764, 2.762],
+  ];
+  for (const [name, a, d, tA, tD, win, defWithdraw, withdraw, destroyed, ea, ed] of rows) {
+    it(name, () => {
+      const odds = computeOdds(a, d, { attackerThreshold: tA, defenderThreshold: tD });
+      expect(odds.win).toBeCloseTo(win, 4);
+      expect(odds.defenderWithdraw).toBeCloseTo(defWithdraw, 4);
+      expect(odds.withdraw).toBeCloseTo(withdraw, 4);
+      expect(odds.destroyed).toBeCloseTo(destroyed, 4);
+      expect(odds.expectedAttackers).toBeCloseTo(ea, 3);
+      expect(odds.expectedDefenders).toBeCloseTo(ed, 3);
+    });
+  }
+
+  it('pursuit that kills every withdrawing unit counts as destroyed', () => {
+    // One 1-hit attacker left after the first death; the pursuer kills it half the time.
+    const a = [f(1, 1, 8), f(9, 1, 8)];
+    const d = [f(9, 2, 12), f(9, 2, 12)];
+    const odds = computeOdds(a, d, { attackerThreshold: 0.99 });
+    expect(odds.withdraw + odds.destroyed + odds.win).toBeCloseTo(1, 12);
+    // A defender wiped out by pursuit is a win for the attacker.
+    const flip = computeOdds(d, a, { defenderThreshold: 0.99 });
+    expect(flip.win).toBeCloseTo(odds.destroyed, 12);
+    expect(flip.defenderWithdraw).toBeCloseTo(odds.withdraw, 12);
+  });
+});
+
 describe('computeOdds: survival and invariants', () => {
   it('outcome probabilities sum to 1 and per-unit survival sums to expected survivors', () => {
     const { attackers, defenders } = gravelmaw();

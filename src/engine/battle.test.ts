@@ -167,6 +167,25 @@ describe('resolveBattle', () => {
     alive.forEach((a, u) => expect(Math.abs(a / n - odds.attackerSurvival[u]!)).toBeLessThan(0.015));
   });
 
+  it('pursuit that kills every withdrawing unit ends the battle as destroyed (or win)', () => {
+    const outcomes = new Set<string>();
+    let rng = seedRng(8);
+    for (let k = 0; k < 200; k++) {
+      const r = resolveBattle(rng, [f(1, 1, 6), f(9, 1, 6)], [f(9, 2, 12), f(9, 2, 12)], { attackerThreshold: 0.99 });
+      rng = r.rng;
+      if (!r.events.some((e) => e.kind === 'withdraw')) continue;
+      const allDead = r.attackerHits.every((h) => h === 0);
+      expect(r.outcome).toBe(allDead ? 'destroyed' : 'withdraw');
+      outcomes.add(r.outcome);
+      const d = resolveBattle(rng, [f(9, 2, 12), f(9, 2, 12)], [f(1, 1, 6), f(9, 1, 6)], { defenderThreshold: 0.99 });
+      rng = d.rng;
+      if (d.events.some((e) => e.kind === 'withdraw')) {
+        expect(d.outcome).toBe(d.defenderHits.every((h) => h === 0) ? 'win' : 'defender-withdraw');
+      }
+    }
+    expect(outcomes).toEqual(new Set(['destroyed', 'withdraw']));
+  });
+
   it('a defender on fall-back can withdraw and be pursued', () => {
     let rng = seedRng(6);
     for (let k = 0; k < 200; k++) {

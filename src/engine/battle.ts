@@ -50,8 +50,9 @@ export function resolveBattle(
   /**
    * The winner's fastest unit strikes the retreating side's weakest surviving
    * unit, once per pursuit strike, moving on to the next unit after a kill.
+   * Returns true if pursuit killed every retreating unit.
    */
-  function pursue(side: Side) {
+  function pursue(side: Side): boolean {
     const [own, ownHits, ownOrder, ownFront, foe, foeOrder, foeFront] =
       side === 'attacker'
         ? ([A, hitsA, orderA, i, D, orderD, j] as const)
@@ -60,7 +61,7 @@ export function resolveBattle(
     const pursuer = foe[p]!;
     if (isCleanBreak(own.slice(ownFront), pursuer)) {
       events.push({ kind: 'pursuit', side, cleanBreak: true });
-      return;
+      return false;
     }
     let front = ownFront;
     for (let s = 0; s < strikesOf(pursuer) && front < own.length; s++) {
@@ -78,6 +79,7 @@ export function resolveBattle(
       });
       if (killed) front++;
     }
+    return front === own.length;
   }
 
   while (outcome === undefined) {
@@ -113,12 +115,10 @@ export function resolveBattle(
       const p = pWin(i, hitsA[i]!, j, hitsD[j]!);
       if (thresholds.attackerThreshold !== undefined && p < thresholds.attackerThreshold) {
         events.push({ kind: 'withdraw', side: 'attacker', winChance: p });
-        pursue('attacker');
-        outcome = 'withdraw';
+        outcome = pursue('attacker') ? 'destroyed' : 'withdraw';
       } else if (thresholds.defenderThreshold !== undefined && 1 - p < thresholds.defenderThreshold) {
         events.push({ kind: 'withdraw', side: 'defender', winChance: 1 - p });
-        pursue('defender');
-        outcome = 'defender-withdraw';
+        outcome = pursue('defender') ? 'win' : 'defender-withdraw';
       }
     }
   }

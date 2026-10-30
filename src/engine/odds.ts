@@ -12,13 +12,13 @@ export interface RetreatThresholds {
 }
 
 export interface Odds {
-  /** All defenders destroyed. */
+  /** All defenders destroyed, in battle or by pursuit. */
   win: number;
-  /** Attacker withdrew. */
+  /** Attacker withdrew with at least one unit alive. */
   withdraw: number;
-  /** All attackers destroyed. */
+  /** All attackers destroyed, in battle or by pursuit. */
   destroyed: number;
-  /** Defender withdrew. */
+  /** Defender withdrew with at least one unit alive. */
   defenderWithdraw: number;
   expectedAttackers: number;
   expectedDefenders: number;
@@ -104,28 +104,37 @@ export function computeOdds(
   }
 
   /**
-   * Terminal vector for a withdrawal with pursuit applied. `withdrawing` and
+   * Outcome vector for a withdrawal, with pursuit applied. `withdrawing` and
    * `pursuers` are the surviving units in fight order; `base` is the slot of
-   * the first withdrawing survivor in the vector.
+   * the first withdrawing survivor. If pursuit kills every withdrawing unit,
+   * that probability counts as `wipedOut` instead of a withdrawal.
    */
   function withdrawal(
-    v: Float64Array,
+    slot: number,
+    wipedOut: number,
+    i: number,
+    j: number,
     withdrawing: Fighter[],
     frontHits: number,
     pursuers: Fighter[],
     base: number,
   ): Float64Array {
+    const v = terminal(slot, i, j);
     const pursuer = pursuers[choosePursuer(pursuers)]!;
-    if (!isCleanBreak(withdrawing, pursuer)) {
-      pursuitSurvival(pursuer, withdrawing, frontHits).forEach((s, k) => (v[base + k] = s));
-    }
+    if (isCleanBreak(withdrawing, pursuer)) return v;
+    const survival = pursuitSurvival(pursuer, withdrawing, frontHits);
+    survival.forEach((p, k) => (v[base + k] = p));
+    // The last unit in fight order dies only if every unit before it did.
+    const allDead = 1 - survival[survival.length - 1]!;
+    v[slot] = 1 - allDead;
+    v[wipedOut] = allDead;
     return v;
   }
 
   const attackerWithdraws = (i: number, ha: number, j: number) =>
-    withdrawal(terminal(WITHDRAW, i, j), A.slice(i), ha, D.slice(j), HEAD + i);
+    withdrawal(WITHDRAW, DESTROYED, i, j, A.slice(i), ha, D.slice(j), HEAD + i);
   const defenderWithdraws = (i: number, j: number, hd: number) =>
-    withdrawal(terminal(DEF_WITHDRAW, i, j), D.slice(j), hd, A.slice(i), HEAD + nA + j);
+    withdrawal(DEF_WITHDRAW, WIN, i, j, D.slice(j), hd, A.slice(i), HEAD + nA + j);
 
   function next(i: number, ha: number, j: number, hd: number, afterDeath: boolean): Float64Array {
     if (afterDeath && i < nA && j < nD) {
