@@ -7,7 +7,7 @@ import { fantasy } from '../content/fantasy';
 import stringsJson from '../content/fantasy/strings.json';
 import themeJson from '../content/fantasy/theme.json';
 import { fromOffset } from '../engine/hex';
-import { inBounds } from '../engine/map';
+import { inBounds, siteById } from '../engine/map';
 import { reachable } from '../engine/movement';
 import type { PlayerView } from '../engine/vision';
 import { Camera } from './camera';
@@ -110,7 +110,7 @@ export async function startApp(root: HTMLElement, buildStamp: string): Promise<v
         plan = { path: [stack.pos, ...mode.path], markers: [], target: view.stacks[mode.targetId]?.pos };
       }
     }
-    const city = mode.kind === 'city' || mode.kind === 'capture' ? view.map.sites.find((s) => s.id === mode.siteId)?.pos : undefined;
+    const city = mode.kind === 'city' || mode.kind === 'capture' ? siteById(view.map, mode.siteId)?.pos : undefined;
     mapView.drawState(view, selection, plan, city);
 
     const panel = ref('panel');

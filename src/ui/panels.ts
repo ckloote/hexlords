@@ -4,7 +4,7 @@
 import type { ContentPack } from '../engine/content';
 import { previewAttack } from '../engine/combat';
 import { cityIncome, pillageGold } from '../engine/economy';
-import { cityAt } from '../engine/map';
+import { cityAt, siteById } from '../engine/map';
 import { fightOrder } from '../engine/fight';
 import { sameHex } from '../engine/hex';
 import { battleModifiers } from './panelSupport';
@@ -180,7 +180,7 @@ export function resultPanel(ctx: PanelContext, report: BattleReport, lostCities:
   }
   if (report.defenderRetreatTo) lines.push('The defenders fell back to a hex behind them.');
   for (const id of lostCities) {
-    const name = ctx.view.map.sites.find((s) => s.id === id)?.name ?? id;
+    const name = siteById(ctx.view.map, id)?.name ?? id;
     lines.push(`They fell back into ${name} and took it.`);
   }
   if (report.attackerAdvanced) lines.push('Your stack moved into the hex.');
@@ -220,7 +220,7 @@ export function cityPanel(ctx: PanelContext, card: CityCard): string {
 }
 
 export function capturePanel(ctx: PanelContext, siteId: string): string {
-  const site = ctx.view.map.sites.find((s) => s.id === siteId)!;
+  const site = siteById(ctx.view.map, siteId)!;
   const city = ctx.view.cities[siteId]!;
   const tier = ctx.strings.tiers[city.tier];
   const option = (choice: 'occupy' | 'pillage' | 'raze', label: string, cls = '') =>

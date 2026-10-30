@@ -3,7 +3,7 @@
 import type { ContentPack } from './content';
 import { pillagedTier, pillageGold } from './economy';
 import { type Hex, sameHex } from './hex';
-import { cityAt } from './map';
+import { cityAt, siteById } from './map';
 import { RULES } from './rules';
 import type { CaptureChoice, CityState, CommandResult, GameState, PlayerId, TurnEvent, Unit, World } from './types';
 
@@ -25,7 +25,7 @@ export function setProduction(
   siteId: string,
   unitTypeId: string | null,
 ): CommandResult {
-  const site = state.map.sites.find((s) => s.id === siteId);
+  const site = siteById(state.map, siteId);
   const city = state.cities[siteId];
   if (!site || !city) return { error: 'No such city' };
   if (city.razed) return { error: 'That city has been razed' };

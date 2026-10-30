@@ -101,7 +101,11 @@ export function applyMove(state: GameState, command: MoveCommand, content: Conte
   return { state: { ...state, units, stacks, nextId }, events: [report] };
 }
 
-/** Restores movement for `playerId`'s units at the start of their turn; units that retreated get half. */
+/**
+ * Restores movement for `playerId`'s units at the start of their turn (units
+ * that retreated get half) and clears the per-turn flags: retreated, and acted
+ * (healing has already read it).
+ */
 export function restoreMovement(state: GameState, content: ContentPack, playerId: string, penaltyPct: number): GameState {
   const units = { ...state.units };
   for (const stack of Object.values(state.stacks)) {
@@ -111,6 +115,7 @@ export function restoreMovement(state: GameState, content: ContentPack, playerId
       const full = content.units[unit.typeId]!.move;
       const restored = { ...unit, moveLeft: unit.retreated ? Math.floor((full * (100 - penaltyPct)) / 100) : full };
       delete restored.retreated;
+      delete restored.acted;
       units[id] = restored;
     }
   }

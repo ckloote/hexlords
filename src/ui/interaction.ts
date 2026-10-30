@@ -5,7 +5,7 @@
 
 import type { ContentPack } from '../engine/content';
 import { type Hex, parseHexKey, sameHex } from '../engine/hex';
-import { siteAt } from '../engine/map';
+import { siteAt, siteById } from '../engine/map';
 import { findPath, movesLeft, type PathStep, pathTo, reachable } from '../engine/movement';
 import type { BattleReport, CaptureChoice, Command, GameEvent, PlayerId, Stack, Stance } from '../engine/types';
 import type { PlayerView } from '../engine/vision';
@@ -312,7 +312,7 @@ export function settle(step: UiState, events: GameEvent[], error: string | null,
       : null;
   const resolved = events.find((e) => e.kind === 'capture-resolved');
   if (resolved && resolved.kind === 'capture-resolved') {
-    const site = view.map.sites.find((s) => s.id === resolved.siteId)!;
+    const site = siteById(view.map, resolved.siteId)!;
     const note =
       resolved.choice === 'occupy' ? `${site.name} is yours.`
       : resolved.choice === 'raze' || view.cities[site.id]!.razed ? `${site.name} lies in ruins${resolved.gold ? `; you took ${resolved.gold} gold` : ''}.`

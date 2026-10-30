@@ -6,7 +6,7 @@ import type { ContentPack } from '../engine/content';
 import { dominationTarget, incomeOf, lastStandPlayer, securedScore, totalIncome, upkeepOf } from '../engine/economy';
 import type { PlayerId } from '../engine/types';
 import type { PlayerView } from '../engine/vision';
-import { signed } from './strings';
+import { factionName, signed } from './strings';
 
 export interface ScoreEntry {
   playerId: PlayerId;
@@ -56,7 +56,7 @@ export function scoreboard(view: PlayerView, content: ContentPack): Scoreboard {
       return {
         playerId: p.id,
         factionId: p.factionId,
-        label: p.id === view.viewer ? 'You' : content.factions[p.factionId]!.shortName,
+        label: p.id === view.viewer ? 'You' : factionName(view, content, p.id, true),
         score,
         share: total > 0 ? score / total : 0,
         eliminated: p.eliminated,
@@ -82,7 +82,7 @@ export function leaderLine(board: Scoreboard, view: PlayerView, content: Content
   const top = ranked[0];
   if (!top) return '';
   const tied = ranked.filter((s) => s.score === top.score);
-  const nameOf = (s: ScoreEntry) => content.factions[s.factionId]!.name;
+  const nameOf = (s: ScoreEntry) => factionName(view, content, s.playerId);
   const ordinal = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'];
   const mine = ranked.find((s) => s.playerId === view.viewer);
   if (tied.length > 1) {

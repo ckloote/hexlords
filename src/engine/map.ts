@@ -61,6 +61,11 @@ export function featureAt(map: MapState, h: Hex): Feature | undefined {
   return map.features[hexKey(h)];
 }
 
+/** The site with this id, or undefined. */
+export function siteById(map: MapState, id: string): Site | undefined {
+  return map.sites.find((s) => s.id === id);
+}
+
 export function siteAt(map: MapState, h: Hex): Site | undefined {
   return map.sites.find((s) => s.pos.q === h.q && s.pos.r === h.r);
 }

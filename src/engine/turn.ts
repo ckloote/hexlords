@@ -100,20 +100,6 @@ function secure(state: GameState, playerId: PlayerId, events: TurnEvent[]): Game
   return { ...state, cities };
 }
 
-function clearActed(state: GameState, playerId: PlayerId): GameState {
-  const units = { ...state.units };
-  for (const stack of Object.values(state.stacks)) {
-    if (stack.owner !== playerId) continue;
-    for (const id of stack.unitIds) {
-      if (!units[id]!.acted) continue;
-      const u = { ...units[id]! };
-      delete u.acted;
-      units[id] = u;
-    }
-  }
-  return { ...state, units };
-}
-
 /** Runs the start of the current player's turn. May eliminate them or end the game. */
 export function startTurn(state: GameState, content: ContentPack, events: TurnEvent[]): GameState {
   const playerId = state.players[state.currentPlayer]!.id;
@@ -133,7 +119,7 @@ export function startTurn(state: GameState, content: ContentPack, events: TurnEv
   if (checks && totalIncome(s) > 0 && securedScore(s, playerId) >= dominationTarget(s)) {
     s = setWinner(s, { playerId, reason: 'domination' }, events);
   }
-  return clearActed(restoreMovement(s, content, playerId, RULES.retreatMovePenaltyPct), playerId);
+  return restoreMovement(s, content, playerId, RULES.retreatMovePenaltyPct);
 }
 
 /** The winner when the last turn ends: highest secured score, then the larger army by gold value; null on a full tie. */

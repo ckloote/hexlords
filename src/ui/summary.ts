@@ -5,6 +5,7 @@
 
 import type { ContentPack } from '../engine/content';
 import { cityIncome, pillagedTier } from '../engine/economy';
+import { siteById } from '../engine/map';
 import type { BattleReport, GameEvent, PlayerId, TurnEvent } from '../engine/types';
 import type { PlayerView } from '../engine/vision';
 import { countNames } from './cityCard';
@@ -68,7 +69,7 @@ export function buildSummary(view: PlayerView, content: ContentPack, strings: St
   const me = view.viewer;
   const board = scoreboard(view, content);
   const nameOf = (playerId: PlayerId | null) => factionName(view, content, playerId);
-  const siteName = (id: string) => view.map.sites.find((s) => s.id === id)?.name ?? id;
+  const siteName = (id: string) => siteById(view.map, id)?.name ?? id;
   const items: SummaryItem[] = [];
   const of = <K extends TurnEvent['kind']>(kind: K) => events.filter((e): e is Of<K> => e.kind === kind);
 

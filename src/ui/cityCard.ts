@@ -5,6 +5,7 @@ import { canBuild, productionBlocker } from '../engine/cities';
 import type { ContentPack, UnitType } from '../engine/content';
 import { cityIncome, incomeOf, upkeepOf } from '../engine/economy';
 import { hexKey, sameHex } from '../engine/hex';
+import { siteById } from '../engine/map';
 import { RULES } from '../engine/rules';
 import type { PlayerId } from '../engine/types';
 import type { PlayerView } from '../engine/vision';
@@ -69,7 +70,7 @@ export function goldWhenReached(view: PlayerView, content: ContentPack, siteId: 
 }
 
 export function cityCard(view: PlayerView, content: ContentPack, strings: Strings, siteId: string): CityCard {
-  const site = view.map.sites.find((s) => s.id === siteId)!;
+  const site = siteById(view.map, siteId)!;
   const city = view.cities[siteId]!;
   const mine = city.owner === view.viewer && !city.razed;
   const defense = RULES.cityDefensePct[city.tier];
