@@ -183,7 +183,10 @@ describe('secured cities and victory', () => {
     ], fantasy);
     const round1 = step(t, end('p1')).state;
     expect(round1.winner).toBeUndefined();
-    expect(step(replay(round1, [end('p2')], fantasy), end('p1')).state.winner).toEqual({ playerId: 'p1', reason: 'last-standing' });
+    const over = step(replay(round1, [end('p2')], fantasy), end('p1')).state;
+    expect(over.winner).toEqual({ playerId: 'p1', reason: 'last-standing' });
+    // The finished game rests on the winner's turn, not on the player just eliminated.
+    expect(over.players[over.currentPlayer]!.id).toBe('p1');
   });
 
   it('after the last turn, the highest secured score wins, then the larger army', () => {

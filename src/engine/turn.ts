@@ -5,7 +5,7 @@
 
 import { runProduction } from './cities';
 import { TAGS, type ContentPack } from './content';
-import { armyValue, chooseDeserter, dominationTarget, incomeOf, securedScore, totalIncome, treasuryAfterUpkeep, upkeepOf } from './economy';
+import { armyValue, dominationTarget, incomeOf, securedScore, totalIncome, treasuryAfterUpkeep, upkeepOf, withoutDeserter } from './economy';
 import { cityAt } from './map';
 import { restoreMovement } from './move';
 import { RULES } from './rules';
@@ -42,19 +42,9 @@ function collect(state: GameState, content: ContentPack, playerId: PlayerId, eve
   let s = state;
   // Short of gold: production waits (it checks the treasury), and the costliest unit deserts.
   if (short) {
-    const deserter = chooseDeserter(s, content, playerId);
-    if (deserter) {
-      const typeId = s.units[deserter]!.typeId;
-      const units = { ...s.units };
-      delete units[deserter];
-      const stacks = { ...s.stacks };
-      const stack = Object.values(stacks).find((st) => st.unitIds.includes(deserter))!;
-      const rest = stack.unitIds.filter((id) => id !== deserter);
-      if (rest.length) stacks[stack.id] = { ...stack, unitIds: rest };
-      else delete stacks[stack.id];
-      s = { ...s, units, stacks };
-      events.push({ kind: 'deserted', playerId, unitId: deserter, unitTypeId: typeId });
-    }
+    const r = withoutDeserter(s, content, playerId);
+    s = r.world;
+    if (r.deserter) events.push({ kind: 'deserted', playerId, ...r.deserter });
   }
   events.push({ kind: 'income', playerId, income, upkeep, gold });
   return { ...s, gold: { ...s.gold, [playerId]: gold } };
@@ -149,5 +139,8 @@ export function endTurn(state: GameState, content: ContentPack): { state: GameSt
     s = startTurn(s, content, events);
     if (s.winner || !s.players[next]!.eliminated) break;
   }
+  // A finished game rests on the winner's turn, not on a player just eliminated.
+  const winnerIndex = s.players.findIndex((p) => p.id === s.winner?.playerId);
+  if (winnerIndex >= 0) s = { ...s, currentPlayer: winnerIndex };
   return { state: s, events };
 }

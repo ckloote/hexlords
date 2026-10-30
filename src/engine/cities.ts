@@ -1,7 +1,7 @@
 // Cities in play: production, capture, and the capture choice (occupy, pillage, raze).
 
 import type { ContentPack } from './content';
-import { pillagedTier, pillageGold } from './economy';
+import { pillagedTier, pillageGold, treasuryAfterUpkeep, withoutDeserter } from './economy';
 import { type Hex, sameHex } from './hex';
 import { cityAt, siteById } from './map';
 import { RULES } from './rules';
@@ -156,6 +156,18 @@ export function forecastProduction(world: World, content: ContentPack, playerId:
     if (finishes && !blocker) left -= cost;
   }
   return out;
+}
+
+/**
+ * forecastProduction for `playerId`'s next turn start as it really runs, from
+ * their treasury now: income and upkeep first, and when upkeep runs short the
+ * deserter leaves before production (which may free a slot in a full city).
+ * The UI and the AI read this.
+ */
+export function forecastTurnStart(world: World, content: ContentPack, playerId: PlayerId, gold: number): ProductionForecast[] {
+  const after = treasuryAfterUpkeep(world, content, playerId, gold);
+  const w = after.short ? withoutDeserter(world, content, playerId).world : world;
+  return forecastProduction(w, content, playerId, after.gold);
 }
 
 /**

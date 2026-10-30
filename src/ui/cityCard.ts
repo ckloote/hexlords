@@ -1,7 +1,7 @@
 // The city panel's model: tier, walls, income, what it is building and when it
 // will be ready, the build list, and the garrison. Reads only the player's view.
 
-import { canBuild, forecastProduction } from '../engine/cities';
+import { canBuild, forecastTurnStart } from '../engine/cities';
 import type { ContentPack, UnitType } from '../engine/content';
 import { cityIncome, treasuryAfterUpkeep } from '../engine/economy';
 import { hexKey, sameHex } from '../engine/hex';
@@ -60,10 +60,10 @@ export function cityCard(view: PlayerView, content: ContentPack, strings: String
     : [strings.tiers[city.tier], defense ? `walls +${defense}%` : 'no walls', `${cityIncome(city.tier)} gold a turn`].join(' · ');
   const holding = city.razed || city.owner === null ? '' : city.secured ? 'Secured' : 'Not yet secured: counts toward victory after a full round';
 
-  // The engine's own forecast of next turn's production: after income and upkeep, cities in map
-  // order pay first, so this city's status and build list use the gold left when production reaches it.
+  // The engine's own forecast of next turn's start (income, upkeep, any desertion, then production
+  // city by city in map order), so this city's status and build list use the gold left when production reaches it.
   const nextGold = treasuryAfterUpkeep(view, content, view.viewer, view.gold).gold;
-  const forecast = mine ? forecastProduction(view, content, view.viewer, nextGold).find((f) => f.siteId === siteId) : undefined;
+  const forecast = mine ? forecastTurnStart(view, content, view.viewer, view.gold).find((f) => f.siteId === siteId) : undefined;
   const gold = forecast?.goldBefore ?? nextGold;
 
   let building: CityCard['building'] = null;

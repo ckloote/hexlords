@@ -63,6 +63,29 @@ export function treasuryAfterUpkeep(world: World, content: ContentPack, playerId
   return { gold: Math.max(0, after), short: after < 0 };
 }
 
+/**
+ * `world` without the unit that deserts when `playerId` cannot pay upkeep
+ * (see chooseDeserter); its stack is dropped if it empties. Unchanged, with a
+ * null deserter, when nobody can desert.
+ */
+export function withoutDeserter<W extends World>(
+  world: W,
+  content: ContentPack,
+  playerId: PlayerId,
+): { world: W; deserter: { unitId: string; unitTypeId: string } | null } {
+  const unitId = chooseDeserter(world, content, playerId);
+  if (!unitId) return { world, deserter: null };
+  const unitTypeId = world.units[unitId]!.typeId;
+  const units = { ...world.units };
+  delete units[unitId];
+  const stacks = { ...world.stacks };
+  const stack = Object.values(stacks).find((st) => st.unitIds.includes(unitId))!;
+  const rest = stack.unitIds.filter((id) => id !== unitId);
+  if (rest.length) stacks[stack.id] = { ...stack, unitIds: rest };
+  else delete stacks[stack.id];
+  return { world: { ...world, units, stacks }, deserter: { unitId, unitTypeId } };
+}
+
 /** Gold from pillaging a city of `tier`. */
 export function pillageGold(tier: CityTier): number {
   return RULES.pillageTurns * cityIncome(tier);

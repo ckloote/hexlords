@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fantasy } from '../content/fantasy';
-import { canBuild, captureAt, forecastProduction, productionBlocker } from './cities';
+import { canBuild, captureAt, forecastProduction, forecastTurnStart, productionBlocker } from './cities';
 import { treasuryAfterUpkeep } from './economy';
 import { applyCommand, createGame, type GameSetup, replay } from './engine';
 import { asciiMap, at } from './test-fixtures';
@@ -138,6 +138,25 @@ describe('forecastProduction', () => {
     expect(r.events).toContainEqual({ kind: 'production-waiting', playerId: 'p1', siteId: 'c1', unitTypeId: 'archers', reason: 'gold' });
     expect(r.state.gold.p1).toBe(10);
     expect(r.state.cities.c2!.production).toEqual({ unitTypeId: 'cavalry', progress: 1 });
+  });
+});
+
+describe('forecastTurnStart', () => {
+  it('lets the deserter leave before production, as the turn start does', () => {
+    // A full stack of 8 Ironguard (upkeep 32) in a 10-gold city with no gold: upkeep runs short.
+    const map = asciiMap(['....'], [{ at: at(0, 0), tier: 'city', owner: 'p1', builds: ['militia'] }, { at: at(3, 0), tier: 'city', owner: 'p2' }], { turnLimit: 40, domination: 1 });
+    const g = createGame(
+      { seed: 1, map, players: [{ id: 'p1', factionId: 'dwarves' }, { id: 'p2', factionId: 'orc-horde' }], startingGold: 0, stacks: [{ owner: 'p1', pos: at(0, 0), units: Array.from({ length: 8 }, () => 'ironguard') }] },
+      fantasy,
+    );
+    const s: GameState = { ...g, turn: 2, currentPlayer: 1, cities: { ...g.cities, c0: { ...g.cities.c0!, production: { unitTypeId: 'militia', progress: 0 } } } };
+    // Without the desertion the city looks full; with it a slot frees, and the real reason is the empty treasury.
+    expect(forecastProduction(s, fantasy, 'p1', 0)[0]!.blocker).toBe('full');
+    expect(forecastTurnStart(s, fantasy, 'p1', 0)[0]).toMatchObject({ siteId: 'c0', finishes: true, blocker: 'gold' });
+    const r = applyCommand(s, end('p2'), fantasy);
+    if ('error' in r) throw new Error(r.error);
+    expect(r.events.filter((e) => e.kind === 'deserted')).toHaveLength(1);
+    expect(r.events).toContainEqual({ kind: 'production-waiting', playerId: 'p1', siteId: 'c0', unitTypeId: 'militia', reason: 'gold' });
   });
 });
 
