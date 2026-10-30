@@ -127,7 +127,7 @@ A losing stack can retreat to save its survivors, but it pays with a pursuit str
 
 - The winner's fastest unit (ties: the one with more pursuit strikes, then the strongest) strikes the retreating stack's weakest surviving unit. Most units strike once; Horse Archers strike twice. This works the same whichever side withdraws.
 - The strike lands with the usual chance, P ÷ (P + T), and the target cannot hit back.
-- **Clean break:** no pursuit if every retreating unit is at least as fast as the pursuer.
+- **Clean break:** no pursuit if every retreating unit is at least as fast as the pursuer. This is checked once, when the withdrawal starts, against every unit that withdraws. The slowest unit sets the column's pace, so a strike that kills it doesn't let the rest escape the remaining strikes.
 - A killing strike removes the unit before the stack reaches its retreat hex.
 
 **Persistent damage**

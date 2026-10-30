@@ -24,7 +24,8 @@ Rules modelled (see DESIGN.md, Combat and Retreat sections):
   strongest, then the first in fight order) strikes the withdrawing side's
   weakest surviving unit once, with probability P / (P + T). It kills only if
   the target has 1 hit left. No pursuit if every surviving unit of the
-  withdrawing side is at least as fast as the pursuer.
+  withdrawing side is at least as fast as the pursuer; this clean-break check
+  happens once, before any strike, even for pursuers with several strikes.
 - Not modelled yet: whether a legal retreat hex exists (with none, that side
   cannot withdraw, so its check is skipped), and units that strike more than
   once when pursuing.
