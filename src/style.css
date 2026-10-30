@@ -41,30 +41,32 @@ button {
 
 .topbar {
   flex: none;
-  height: 52px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 16px;
-  padding-top: env(safe-area-inset-top);
-  box-sizing: content-box;
+  padding: 6px 16px 8px;
+  padding-top: calc(6px + env(safe-area-inset-top));
   border-bottom: 1px solid var(--line);
   background: var(--bg);
 }
 
+.top-row { height: 40px; display: flex; align-items: center; gap: 12px; }
+.top-row .who { display: flex; align-items: center; gap: 8px; }
 .topbar .faction {
   font-family: var(--font-display);
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
-
-.topbar .turn {
-  margin-left: auto;
-  font-size: 15px;
-  font-family: var(--font-display);
-  font-weight: 700;
-}
+.top-row .gold { display: flex; align-items: center; gap: 6px; }
+.top-row .gold b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.top-row .gold span { font-size: 14px; font-weight: 600; }
+.coin { width: 16px; height: 16px; border-radius: 50%; background: var(--brass); border: 1.5px solid #8a6a2a; box-shadow: inset 0 0 0 3px var(--brass), inset 0 0 0 4.5px #8a6a2a; }
+.topbar .turn { margin-left: auto; white-space: nowrap; }
+.topbar .turn b { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.04em; }
+.topbar .sub { font-size: 13px; color: var(--text-2); }
+.score { display: flex; flex-direction: column; gap: 5px; }
+.score-bar { position: relative; height: 8px; }
+.score-bar .fill { height: 8px; border-radius: 4px; overflow: hidden; display: flex; gap: 1px; background: var(--line); }
+.score-bar .mark { position: absolute; top: -4px; width: 2px; height: 16px; margin-left: -1px; background: #fff8ea; border-radius: 1px; }
+.score-line { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-2); }
 
 /* Faction banners: color plus a distinct shape, for colorblind players. */
 .banner {
@@ -316,3 +318,57 @@ button {
 .error {
   padding: 24px 16px;
 }
+
+/* Stack panel: link to the city the stack stands in. */
+.city-link { margin-top: 8px; width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); color: var(--text); font-size: 14px; text-align: left; }
+
+/* City panel. */
+.building { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--raised); }
+.building .row { display: flex; justify-content: space-between; align-items: baseline; }
+.building.idle b { color: var(--brass); }
+.progress { margin-top: 6px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--brass); }
+.build-row {
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--text);
+  text-align: left;
+}
+.build-row.on { border-color: var(--brass); }
+.build-row .name { font-size: 15px; font-weight: 600; }
+.build-row .price { display: flex; flex-direction: column; align-items: flex-end; text-align: right; white-space: nowrap; }
+
+/* Capture card. */
+.choices { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.choice { min-height: 56px; padding: 8px 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; border: 1px solid var(--line); border-radius: 12px; background: var(--raised); color: var(--text); text-align: left; font-size: 16px; }
+.choice.primary { border-color: var(--brass); }
+
+/* Turn summary. */
+.summary { align-items: flex-start; overflow-y: auto; }
+.summary-card { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
+.summary-head { display: flex; align-items: center; gap: 12px; }
+.summary h2 { margin: 0; font-family: var(--font-display); font-size: 22px; }
+.summary .sub { display: block; font-size: 13px; color: var(--text-2); }
+.summary .sub.inline { display: inline; margin-left: 6px; text-transform: none; letter-spacing: 0; }
+.summary .label { font-size: 12px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.06em; }
+.sbars { display: flex; flex-direction: column; gap: 6px; }
+.sbar { display: grid; grid-template-columns: 76px 1fr; align-items: center; gap: 8px; font-size: 13px; }
+.sbar div { position: relative; height: 8px; border-radius: 4px; background: var(--line); }
+.sbar i { display: block; height: 100%; border-radius: 4px; }
+.sbar b { position: absolute; top: -3px; width: 2px; height: 14px; background: #fff8ea; }
+.summary .economy { margin: 0; font-size: 14px; }
+.summary .warn { margin: 0; color: #ee7466; font-size: 14px; }
+.events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.events li { padding: 10px 12px; border-radius: 12px; background: var(--panel); border-left: 3px solid var(--text-2); display: flex; flex-direction: column; gap: 2px; }
+.events li.good { border-left-color: #6cc28a; color: var(--text); }
+.events li.danger { border-left-color: #ee7466; color: var(--text); }
+.summary button { margin-top: 4px; width: 100%; height: 52px; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; }
+.gameover { z-index: 20; }

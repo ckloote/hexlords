@@ -18,5 +18,22 @@
     "hold": "Hold: fight to the last unit.",
     "fall-back": "Fall back: retreat if the win chance drops below {threshold}.",
     "evade": "Evade: slip away before the fight if the attacker is stronger and no faster; otherwise fall back at 50%."
+  },
+  "tiers": {
+    "village": "Village",
+    "city": "City",
+    "capital": "Capital"
+  },
+  "capture": {
+    "occupy": "Keep the city and its income.",
+    "pillage": "Take {gold} gold now. The city drops a tier; a village is razed.",
+    "raze": "Destroy it so nobody can use it."
+  },
+  "tags": {
+    "defense-bonus": "+25% defending",
+    "siege": "city walls −25%",
+    "flying": "flies",
+    "regenerates": "regenerates",
+    "forest-zoc-immune": "slips through forest"
   }
 }

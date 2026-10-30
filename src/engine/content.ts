@@ -67,6 +67,8 @@ export function upkeepFor(cost: number): number {
 export interface Faction {
   id: string;
   name: string;
+  /** A short name for tight spaces such as the score strip; defaults to name. */
+  shortName: string;
   traits: string[];
   uniqueUnit?: string;
 }
@@ -137,6 +139,7 @@ export function loadContent(raw: unknown): ContentPack {
     const faction: Faction = {
       id,
       name: str(o.name, `factions.${id}.name`),
+      shortName: o.shortName === undefined ? str(o.name, `factions.${id}.name`) : str(o.shortName, `factions.${id}.shortName`),
       traits: tags(o.traits ?? [], `factions.${id}.traits`),
     };
     if (o.uniqueUnit !== undefined) {

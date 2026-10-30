@@ -5,7 +5,7 @@
 
 import type { ContentPack } from './content';
 import { type Hex, hexDistance, neighbors, sameHex } from './hex';
-import { featureAt, inBounds, siteAt, terrainAt } from './map';
+import { cityAt, featureAt, inBounds, terrainAt } from './map';
 import { type BattleContext, type BattleModifiers, battleModifiers, type Combatant } from './modifiers';
 import { canEnter, hexCost, moverFor, stackMover } from './movement';
 import { computeOdds, type Odds } from './odds';
@@ -17,8 +17,8 @@ export function battleContextAt(world: World, content: ContentPack, attackerPos:
   const ctx: BattleContext = {
     terrainDefensePct: content.terrain[terrainAt(world.map, defenderPos) ?? '']?.defensePct ?? 0,
   };
-  const site = siteAt(world.map, defenderPos);
-  if (site?.kind === 'city') ctx.city = { defensePct: RULES.cityDefensePct[site.tier] };
+  const city = cityAt(world, defenderPos);
+  if (city && !city.state.razed) ctx.city = { defensePct: RULES.cityDefensePct[city.state.tier] };
   if (featureAt(world.map, attackerPos) === 'ford' && featureAt(world.map, defenderPos) !== 'ford') ctx.acrossFord = true;
   return ctx;
 }
@@ -36,8 +36,8 @@ export function retreatHex(world: World, content: ContentPack, stack: Stack, att
     if (hexDistance(hex, attackerPos) !== 2 || !inBounds(world.map, hex) || !canEnter(world, content, mover, hex)) continue;
     const there = Object.values(world.stacks).find((s) => s.id !== stack.id && sameHex(s.pos, hex));
     if (there && (there.owner !== stack.owner || there.unitIds.length + stack.unitIds.length > RULES.maxStackSize)) continue;
-    const site = siteAt(world.map, hex);
-    const friendlyCity = site?.kind === 'city' && world.cityOwners[site.id] === stack.owner;
+    const city = cityAt(world, hex);
+    const friendlyCity = city !== undefined && !city.state.razed && city.state.owner === stack.owner;
     options.push({ hex, city: friendlyCity, cost: hexCost(world, content, mover, hex) });
   }
   options.sort((a, b) => Number(b.city) - Number(a.city) || a.cost - b.cost); // stable: direction order breaks ties

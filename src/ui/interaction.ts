@@ -3,10 +3,12 @@
 // player's view, like the AI. The controller runs the commands, then settle()
 // turns their results into the next UI state.
 
+import { canBuild } from '../engine/cities';
 import type { ContentPack } from '../engine/content';
 import { type Hex, parseHexKey, sameHex } from '../engine/hex';
+import { siteAt, siteById } from '../engine/map';
 import { findPath, movesLeft, type PathStep, pathTo, reachable } from '../engine/movement';
-import type { BattleReport, Command, GameEvent, PlayerId, Stack, Stance } from '../engine/types';
+import type { BattleReport, CaptureChoice, Command, GameEvent, PlayerId, Stack, Stance } from '../engine/types';
 import type { PlayerView } from '../engine/vision';
 
 /** Stands for "the stack the previous Move produced" in a queued Attack. */
@@ -22,13 +24,22 @@ export type Mode =
   | { kind: 'move'; stackId: string; split: string[]; goal: Hex; steps: PathStep[] }
   /** `path`: this turn's steps to the hex the attack starts from; empty when adjacent. */
   | { kind: 'attack'; stackId: string; split: string[]; targetId: string; path: Hex[]; withdrawBelow: number }
-  | { kind: 'result'; report: BattleReport }
-  | { kind: 'handoff'; playerId: PlayerId };
+  /** `lostCities`: the viewer's cities a defender fell back into and took during this battle. */
+  | { kind: 'result'; report: BattleReport; lostCities: string[] }
+  /** The city panel. */
+  | { kind: 'city'; siteId: string }
+  /** The player just took a city and must choose its fate. */
+  | { kind: 'capture'; siteId: string }
+  | { kind: 'handoff'; playerId: PlayerId }
+  /** The turn summary; the controller fills in what happened since the player's last turn. */
+  | { kind: 'summary'; events: GameEvent[] };
 
 export interface UiState {
   mode: Mode;
   /** A short toast for the player, or null. */
   message: string | null;
+  /** End turn was tapped once and warned about idle cities; a second tap ends the turn. */
+  endWarned?: boolean;
 }
 
 export type Input =
@@ -42,7 +53,10 @@ export type Input =
   | { kind: 'withdraw'; delta: number }
   | { kind: 'nextStack' }
   | { kind: 'endTurn' }
-  | { kind: 'continue' };
+  | { kind: 'continue' }
+  | { kind: 'openCity'; siteId: string }
+  | { kind: 'build'; unitTypeId: string | null }
+  | { kind: 'capture'; choice: CaptureChoice };
 
 export interface Step {
   ui: UiState;
@@ -95,14 +109,6 @@ function select(stackId: string): UiState {
   return ui({ kind: 'selected', stackId, split: [] });
 }
 
-function nextPlayer(view: PlayerView): PlayerId {
-  const n = view.players.length;
-  for (let k = 1; k <= n; k++) {
-    const p = view.players[(view.currentPlayer + k) % n]!;
-    if (!p.eliminated) return p.id;
-  }
-  return view.viewer;
-}
 
 /** Moves that continue saved routes at the start of a turn; routes with no path are dropped. */
 export function continueRoutes(view: PlayerView, content: ContentPack): Command[] {
@@ -129,6 +135,8 @@ function onTap(view: PlayerView, content: ContentPack, state: UiState, hex: Hex)
   if (mode.kind !== 'selected' && mode.kind !== 'move' && mode.kind !== 'attack') {
     if (stack && mine) return none(select(stack.id));
     if (stack) return none(ui({ kind: 'idle' }, describeEnemy(view, content, stack)));
+    const site = siteAt(view.map, hex);
+    if (site) return none(ui({ kind: 'city', siteId: site.id }));
     return none(ui({ kind: 'idle' }));
   }
 
@@ -174,11 +182,40 @@ function confirm(view: PlayerView, state: UiState): Step {
   return { ui: state, commands: [] };
 }
 
+/** Owned cities with nothing in production but something this player's faction can build there. */
+export function idleCities(view: PlayerView, content: ContentPack): string[] {
+  const factionId = view.players.find((p) => p.id === view.viewer)!.factionId;
+  return view.map.sites
+    .filter((s) => {
+      const c = view.cities[s.id]!;
+      return c.owner === view.viewer && !c.razed && !c.production && s.builds.some((id) => canBuild(content, factionId, id));
+    })
+    .map((s) => s.name);
+}
+
 export function interact(view: PlayerView, content: ContentPack, state: UiState, input: Input): Step {
+  const step = react(view, content, state, input);
+  // The idle-city warning holds only until the next input.
+  if (input.kind !== 'endTurn' && step.ui.endWarned) {
+    step.ui = { ...step.ui };
+    delete step.ui.endWarned;
+  }
+  return step;
+}
+
+function react(view: PlayerView, content: ContentPack, state: UiState, input: Input): Step {
   const mode = state.mode;
   const none = (u: UiState): Step => ({ ui: u, commands: [] });
-  if (mode.kind === 'handoff') {
+  if (view.winner) return none(state);
+  if (mode.kind === 'handoff') return none(input.kind === 'continue' ? ui({ kind: 'summary', events: [] }) : state);
+  if (mode.kind === 'summary') {
     return input.kind === 'continue' ? { ui: ui({ kind: 'idle' }), commands: continueRoutes(view, content) } : none(state);
+  }
+  const pending = view.pendingCaptures;
+  // The capture card is modal: the city's fate comes first.
+  if (mode.kind === 'capture' && pending.some((p) => p.siteId === mode.siteId)) {
+    if (input.kind !== 'capture') return none(state);
+    return { ui: state, commands: [{ type: 'ResolveCapture', playerId: view.viewer, siteId: mode.siteId, choice: input.choice }] };
   }
   switch (input.kind) {
     case 'tap':
@@ -190,6 +227,7 @@ export function interact(view: PlayerView, content: ContentPack, state: UiState,
       return none(ui({ kind: 'idle' }));
     case 'continue':
       if (mode.kind === 'result') {
+        if (pending.length) return none(ui({ kind: 'capture', siteId: pending[0]!.siteId }));
         const id = mode.report.attackerStackId;
         return none(view.stacks[id] ? select(id) : ui({ kind: 'idle' }));
       }
@@ -230,27 +268,71 @@ export function interact(view: PlayerView, content: ContentPack, state: UiState,
       const after = ready.find((id) => current === null || Number(id.slice(1)) > Number(current.slice(1)));
       return none(select(after ?? ready[0]!));
     }
-    case 'endTurn':
-      return { ui: ui({ kind: 'handoff', playerId: nextPlayer(view) }), commands: [{ type: 'EndTurn', playerId: view.viewer }] };
+    case 'openCity':
+      return none(view.cities[input.siteId] ? ui({ kind: 'city', siteId: input.siteId }) : state);
+    case 'build':
+      if (mode.kind !== 'city') return none(state);
+      return { ui: state, commands: [{ type: 'SetProduction', playerId: view.viewer, siteId: mode.siteId, unitTypeId: input.unitTypeId }] };
+    case 'capture':
+      return none(state);
+    case 'endTurn': {
+      if (pending.length) {
+        return none(ui({ kind: 'capture', siteId: pending[0]!.siteId }, 'Decide what to do with the cities you took before ending the turn.'));
+      }
+      const idle = idleCities(view, content);
+      if (idle.length && !state.endWarned) {
+        const list = idle.length === 1 ? `${idle[0]} has` : `${idle.slice(0, -1).join(', ')} and ${idle[idle.length - 1]} have`;
+        return none({ mode, message: `${list} nothing in production. Tap End turn again to end anyway.`, endWarned: true });
+      }
+      // settle() names the player whose turn it is once EndTurn has run (it may skip an eliminated one).
+      return { ui: ui({ kind: 'handoff', playerId: view.viewer }), commands: [{ type: 'EndTurn', playerId: view.viewer }] };
+    }
   }
 }
 
 /** The UI state after the engine ran a step's commands. */
 export function settle(step: UiState, events: GameEvent[], error: string | null, view: PlayerView): UiState {
   const mode = step.mode;
-  if (mode.kind === 'handoff') return step;
+  if (mode.kind === 'handoff') {
+    if (error) return ui({ kind: 'idle' }, error);
+    // A game that just ended shows the game-over card; nobody needs the device passed.
+    if (view.winner) return ui({ kind: 'idle' });
+    return ui({ kind: 'handoff', playerId: view.viewer });
+  }
+  if (mode.kind === 'summary') return step;
   const battle = events.find((e): e is BattleReport => e.kind === 'battle');
-  if (battle) return ui({ kind: 'result', report: battle }, error);
+  // The battle result shows first; Continue then opens any capture card.
+  if (battle) {
+    const lostCities = events.flatMap((e) => (e.kind === 'captured' && e.from === view.viewer ? [e.siteId] : []));
+    return ui({ kind: 'result', report: battle, lostCities }, error);
+  }
+  const nextCapture = view.pendingCaptures[0]?.siteId;
+  const moves = events.filter((e) => e.kind === 'moved');
+  const routesNote =
+    mode.kind === 'idle' && moves.length
+      ? `${moves.length} stack${moves.length === 1 ? '' : 's'} continued along ${moves.length === 1 ? 'its route' : 'their routes'}.`
+      : null;
+  const resolved = events.find((e) => e.kind === 'capture-resolved');
+  if (resolved && resolved.kind === 'capture-resolved') {
+    const site = siteById(view.map, resolved.siteId)!;
+    const note =
+      resolved.choice === 'occupy' ? `${site.name} is yours.`
+      : resolved.choice === 'raze' || view.cities[site.id]!.razed ? `${site.name} lies in ruins${resolved.gold ? `; you took ${resolved.gold} gold` : ''}.`
+      : `You pillaged ${site.name} for ${resolved.gold} gold.`;
+    if (nextCapture) return ui({ kind: 'capture', siteId: nextCapture }, note);
+    const there = Object.values(view.stacks).find((s) => s.owner === view.viewer && sameHex(s.pos, site.pos));
+    return there ? ui({ kind: 'selected', stackId: there.id, split: [] }, note) : ui({ kind: 'idle' }, note);
+  }
+  if (nextCapture) return ui({ kind: 'capture', siteId: nextCapture }, error ?? routesNote);
+  // A rejected build or capture choice keeps its panel open, with the reason.
+  if (error && (mode.kind === 'city' || mode.kind === 'capture')) return ui(mode, error);
   if (error) {
     const stackId = 'stackId' in mode ? mode.stackId : null;
     const moved = [...events].reverse().find((e) => e.kind === 'moved');
     const id = moved && moved.kind === 'moved' ? (moved.mergedInto ?? moved.stackId) : stackId;
     return id && view.stacks[id] ? ui({ kind: 'selected', stackId: id, split: [] }, error) : ui({ kind: 'idle' }, error);
   }
-  const moves = events.filter((e) => e.kind === 'moved');
-  if (mode.kind === 'idle' && moves.length) {
-    return ui({ kind: 'idle' }, `${moves.length} stack${moves.length === 1 ? '' : 's'} continued along ${moves.length === 1 ? 'its route' : 'their routes'}.`);
-  }
+  if (routesNote) return ui({ kind: 'idle' }, routesNote);
   const last = moves[moves.length - 1];
   if (last && last.kind === 'moved') {
     const id = last.mergedInto ?? last.stackId;

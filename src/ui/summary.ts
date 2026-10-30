@@ -1,0 +1,154 @@
+// The turn summary ("while you were away"): what happened to the viewer since
+// their last turn, built from the engine's events. The controller passes only
+// the events summaryEventFor keeps: from other players' turns and the
+// viewer's own turn start.
+
+import type { ContentPack } from '../engine/content';
+import { cityIncome, pillagedTier } from '../engine/economy';
+import { siteById } from '../engine/map';
+import type { BattleReport, GameEvent, PlayerId, TurnEvent } from '../engine/types';
+import type { PlayerView } from '../engine/vision';
+import { countNames } from './cityCard';
+import { leaderLine, type Scoreboard, scoreboard } from './scoreboard';
+import { factionName, signed, type Strings } from './strings';
+
+export interface SummaryItem {
+  tone: 'good' | 'danger' | 'neutral';
+  title: string;
+  detail: string;
+}
+
+export interface Summary {
+  turn: number;
+  board: Scoreboard;
+  /** "Income 45 − upkeep 27 = +18 gold · treasury 212". */
+  economy: string;
+  items: SummaryItem[];
+  leader: string;
+  /** Shown when one player holds more than half the income. */
+  lastStand: string | null;
+}
+
+type Of<K extends TurnEvent['kind']> = Extract<TurnEvent, { kind: K }>;
+
+/**
+ * Whether `event` belongs in `playerId`'s next turn summary: battles they
+ * fought, cities taken from or by them (and what the taker did with cities
+ * taken from them), their own turn-start events, eliminations, and the end of
+ * the game.
+ */
+export function summaryEventFor(event: GameEvent, playerId: PlayerId): boolean {
+  switch (event.kind) {
+    case 'moved':
+      return false;
+    case 'battle':
+      return event.attackerOwner === playerId || event.defenderOwner === playerId;
+    case 'captured':
+      return event.playerId === playerId || event.from === playerId;
+    case 'capture-resolved':
+      return event.from === playerId;
+    case 'eliminated':
+    case 'game-over':
+      return true;
+    default:
+      return event.playerId === playerId;
+  }
+}
+
+/** Units each side lost in a battle, pursuit included. */
+export function battleLosses(report: BattleReport): { attacker: number; defender: number } {
+  const lost = { attacker: 0, defender: 0 };
+  for (const e of report.events) {
+    if (e.kind === 'death') lost[e.side]++;
+    if (e.kind === 'pursuit' && !e.cleanBreak && e.killed) lost[e.side]++;
+  }
+  return lost;
+}
+
+export function buildSummary(view: PlayerView, content: ContentPack, strings: Strings, events: readonly GameEvent[]): Summary {
+  const me = view.viewer;
+  const board = scoreboard(view, content);
+  const nameOf = (playerId: PlayerId | null) => factionName(view, content, playerId);
+  const siteName = (id: string) => siteById(view.map, id)?.name ?? id;
+  const items: SummaryItem[] = [];
+  const of = <K extends TurnEvent['kind']>(kind: K) => events.filter((e): e is Of<K> => e.kind === kind);
+
+  for (const e of events) {
+    if (e.kind !== 'battle' || e.defenderOwner !== me) continue;
+    const lost = battleLosses(e);
+    const result =
+      e.outcome === 'win' ? 'Your stack was destroyed.'
+      : e.outcome === 'defender-withdraw' ? 'Your stack fell back.'
+      : e.outcome === 'evaded' ? 'Your stack slipped away before the fight.'
+      : e.outcome === 'withdraw' ? 'They withdrew.'
+      : 'Your stack held.';
+    const tally = e.outcome === 'evaded' ? '' : ` You lost ${lost.defender}; they lost ${lost.attacker}.`;
+    const good = e.outcome === 'withdraw' || e.outcome === 'destroyed' || e.outcome === 'evaded';
+    items.push({ tone: good ? 'good' : 'danger', title: `The ${nameOf(e.attackerOwner)} attacked you`, detail: `${result}${tally}` });
+  }
+
+  const resolved = of('capture-resolved');
+  const captures = of('captured');
+  captures.forEach((e, k) => {
+    // Your stack fell back into a city the enemy had just taken from you: one line, not "lost" and "took".
+    const retaken = (c: Of<'captured'>) => c.siteId === e.siteId && c.playerId === me;
+    if (e.playerId === me && captures.slice(0, k).some((c) => c.siteId === e.siteId && c.from === me)) return;
+    if (e.from === me) {
+      if (captures.slice(k + 1).some(retaken)) {
+        items.push({ tone: 'good', title: `The ${nameOf(e.playerId)} took ${siteName(e.siteId)}`, detail: 'Your stack fell back into it and took it back.' });
+        return;
+      }
+      // Worded from the city as it was taken and what this taker chose, not from its state now.
+      const fate = resolved.find((r) => r.siteId === e.siteId && r.playerId === e.playerId && r.from === e.from)?.choice;
+      const after = pillagedTier(e.tier);
+      const detail =
+        fate === 'raze' ? 'They razed it.'
+        : fate === 'pillage' ? (after ? `They pillaged it; it is now a ${strings.tiers[after].toLowerCase()}.` : 'They pillaged it to the ground.')
+        : `${strings.tiers[e.tier]} lost · income −${cityIncome(e.tier)} a turn`;
+      items.push({ tone: 'danger', title: `The ${nameOf(e.playerId)} took ${siteName(e.siteId)}`, detail });
+    } else if (e.playerId === me) {
+      items.push({ tone: 'good', title: `You took ${siteName(e.siteId)}`, detail: 'Your stack fell back into the empty city and holds it.' });
+    }
+  });
+
+  const built = of('unit-built').filter((e) => e.playerId === me);
+  if (built.length) {
+    const names = built.map((e) => `${content.units[e.unitTypeId]!.name} at ${siteName(e.siteId)}`);
+    items.push({ tone: 'good', title: built.length === 1 ? 'New unit ready' : 'New units ready', detail: names.join(' · ') });
+  }
+  for (const e of of('production-waiting').filter((x) => x.playerId === me)) {
+    const why = e.reason === 'gold' ? 'not enough gold' : 'the stack in the city is full';
+    items.push({ tone: 'danger', title: `${siteName(e.siteId)} is waiting`, detail: `${content.units[e.unitTypeId]!.name} is ready, but ${why}.` });
+  }
+  const deserted = of('deserted').filter((e) => e.playerId === me);
+  if (deserted.length) {
+    items.push({
+      tone: 'danger',
+      title: 'Units deserted',
+      detail: `${countNames(deserted.map((e) => content.units[e.unitTypeId]!.name))} left: the treasury could not pay upkeep.`,
+    });
+  }
+  for (const e of of('secured').filter((x) => x.playerId === me)) {
+    items.push({ tone: 'good', title: `${siteName(e.siteId)} is secured`, detail: 'It now counts toward victory.' });
+  }
+  const healed = of('healed').filter((e) => e.playerId === me).reduce((n, e) => n + e.hits, 0);
+  if (healed) items.push({ tone: 'neutral', title: 'Wounds healed', detail: `${healed} hit${healed === 1 ? '' : 's'} recovered.` });
+  // An eliminated player gets no further turn, so this only ever reports other players.
+  for (const e of of('eliminated')) {
+    if (e.playerId === me) continue;
+    items.push({ tone: 'neutral', title: `${nameOf(e.playerId)} eliminated`, detail: 'They hold no city, and their army has disbanded.' });
+  }
+
+  const income = of('income').find((e) => e.playerId === me);
+  const net = board.income - board.upkeep;
+  const economy = income
+    ? `Income ${income.income} − upkeep ${income.upkeep} = ${signed(income.income - income.upkeep)} gold · treasury ${view.gold}`
+    : `Income ${board.income} − upkeep ${board.upkeep} = ${signed(net)} gold a turn · treasury ${view.gold}`;
+
+  const leader = `${leaderLine(board, view, content)} Domination needs ${board.target} secured.`;
+  const lastStand =
+    board.lastStand === null ? null
+    : board.lastStand === me ? 'You hold more than half of all income. Everyone will come for you: hold out until it is secured.'
+    : `Last stand: over half of all income belongs to the ${nameOf(board.lastStand)}. Stop them before it is secured.`;
+  return { turn: view.turn, board, economy, items, leader, lastStand };
+}

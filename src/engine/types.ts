@@ -2,7 +2,7 @@
 
 import type { BattleEvent, BattleOutcome } from './battle';
 import type { Hex } from './hex';
-import type { MapState } from './map';
+import type { CityTier, MapState } from './map';
 import type { ModifierLine } from './modifiers';
 import type { RngState } from './rng';
 
@@ -23,6 +23,8 @@ export interface Unit {
   moveLeft: number;
   /** Retreated since its owner's last turn; starts the next turn with half movement. */
   retreated?: boolean;
+  /** Moved or fought since its owner's last turn start; it heals in the field only if not. */
+  acted?: boolean;
 }
 
 /** Standing order for a field stack when attacked. */
@@ -42,12 +44,47 @@ export interface Stack {
   destination?: Hex;
 }
 
+export interface Production {
+  unitTypeId: string;
+  /** Turns of work done; the unit is ready once this reaches its build time. */
+  progress: number;
+}
+
+/** A city's play state. Ownership, tier, and secured status are public; production is its owner's. */
+export interface CityState {
+  /** null for neutral or razed. */
+  owner: PlayerId | null;
+  tier: CityTier;
+  razed: boolean;
+  production: Production | null;
+  /** The current owner has held it at the start of one of their turns; false right after a capture. */
+  held: boolean;
+  /** Held for a full round (start of one owner turn to the next); only secured cities score. */
+  secured: boolean;
+}
+
+export type CaptureChoice = 'occupy' | 'pillage' | 'raze';
+
+/** A city taken this turn, awaiting Occupy, Pillage, or Raze. */
+export interface PendingCapture {
+  siteId: string;
+  /** Its owner before it was taken (null for neutral). */
+  from: PlayerId | null;
+}
+
+
+export interface Winner {
+  /** null for a draw. */
+  playerId: PlayerId | null;
+  reason: 'domination' | 'last-standing' | 'turn-limit';
+}
+
 /** The parts of the state that describe the board; shared by the full state and a player's view. */
 export interface World {
   map: MapState;
   players: Player[];
-  /** Current owner of each city by site id (null for neutral). Public: fog hides only units. */
-  cityOwners: Record<string, PlayerId | null>;
+  /** Play state of each city by site id. Public apart from production: fog hides only units. */
+  cities: Record<string, CityState>;
   stacks: Record<string, Stack>;
   units: Record<string, Unit>;
 }
@@ -62,7 +99,21 @@ export interface GameState extends World {
   currentPlayer: number;
   /** Hexes each player has ever seen, keyed by hexKey. */
   explored: Record<PlayerId, Record<string, true>>;
+  /** Counter for stack ids (s1, s2, ...). */
   nextId: number;
+  /** Counter for unit ids (u1, u2, ...). */
+  nextUnitId: number;
+  /** Treasury per player. */
+  gold: Record<PlayerId, number>;
+  /**
+   * Cities the current player took this turn and has not yet decided on
+   * (Occupy, Pillage, or Raze), each once, with whom they were taken from;
+   * they must all be resolved before ending the turn. A city that changes
+   * hands again drops off.
+   */
+  pendingCaptures: PendingCapture[];
+  /** Set when the game is over; no command is accepted after that. */
+  winner?: Winner;
 }
 
 export type Command =
@@ -87,12 +138,17 @@ export type Command =
     }
   /** Forget a saved destination (the UI drops routes it can no longer plan). */
   | { type: 'ClearDestination'; playerId: PlayerId; stackId: string }
-  // Later milestones.
+  /** Start building a unit type in a city (null stops production). Changing type loses progress. */
   | { type: 'SetProduction'; playerId: PlayerId; siteId: string; unitTypeId: string | null }
+  /** Decide what to do with the city just captured. */
+  | { type: 'ResolveCapture'; playerId: PlayerId; siteId: string; choice: CaptureChoice }
+  // Later milestones.
   | { type: 'Explore'; playerId: PlayerId; stackId: string };
 
 export interface BattleReport {
   kind: 'battle';
+  attackerOwner: PlayerId;
+  defenderOwner: PlayerId;
   attackerStackId: string;
   defenderStackId: string;
   attackerUnitIds: string[];
@@ -121,6 +177,22 @@ export interface MoveReport {
   mergedInto?: string;
 }
 
-export type GameEvent = BattleReport | MoveReport | { kind: 'turn-started'; playerId: PlayerId; turn: number };
+/** Events of the economy and the turn cycle. */
+export type TurnEvent =
+  | { kind: 'turn-started'; playerId: PlayerId; turn: number }
+  /** `tier`: the city's tier when it was taken. */
+  | { kind: 'captured'; playerId: PlayerId; siteId: string; from: PlayerId | null; tier: CityTier; stackId: string }
+  /** `from`: whose city it was before the capture (null for neutral). */
+  | { kind: 'capture-resolved'; playerId: PlayerId; siteId: string; from: PlayerId | null; choice: CaptureChoice; gold: number }
+  | { kind: 'income'; playerId: PlayerId; income: number; upkeep: number; gold: number }
+  | { kind: 'unit-built'; playerId: PlayerId; siteId: string; unitId: string; unitTypeId: string; cost: number }
+  | { kind: 'production-waiting'; playerId: PlayerId; siteId: string; unitTypeId: string; reason: 'gold' | 'full' }
+  | { kind: 'deserted'; playerId: PlayerId; unitId: string; unitTypeId: string }
+  | { kind: 'healed'; playerId: PlayerId; hits: number }
+  | { kind: 'secured'; playerId: PlayerId; siteId: string }
+  | { kind: 'eliminated'; playerId: PlayerId }
+  | { kind: 'game-over'; winner: Winner };
+
+export type GameEvent = BattleReport | MoveReport | TurnEvent;
 
 export type CommandResult = { state: GameState; events: GameEvent[] } | { error: string };

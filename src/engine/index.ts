@@ -1,7 +1,9 @@
 // Public API of the rules engine.
 export * from './battle';
+export * from './cities';
 export * from './combat';
 export * from './content';
+export * from './economy';
 export * from './engine';
 export * from './fight';
 export * from './hex';
@@ -14,4 +16,6 @@ export * from './rng';
 export * from './rules';
 export * from './tiled';
 export * from './types';
+// endTurn and startTurn stay internal: turns change only through applyCommand's checks.
+export { turnLimitWinner } from './turn';
 export * from './vision';

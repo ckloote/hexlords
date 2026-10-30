@@ -32,6 +32,20 @@ describe('createGame', () => {
     expect(state.units[state.stacks.s1!.unitIds[2]!]!.hits).toBe(1);
   });
 
+  it('rejects starting gold that is not a whole number of 0 or more', () => {
+    for (const bad of [-1, 2.5, Number.NaN, '50' as unknown as number]) {
+      expect(() => createGame({ ...setup, startingGold: bad }, fantasy)).toThrow(/startingGold/);
+    }
+    expect(createGame({ ...setup, startingGold: 0 }, fantasy).gold.p1).toBe(0);
+  });
+
+  it('keeps the turn change behind applyCommand: the public API does not export endTurn or startTurn', async () => {
+    const api = await import('./index');
+    expect('endTurn' in api).toBe(false);
+    expect('startTurn' in api).toBe(false);
+    expect('turnLimitWinner' in api).toBe(true);
+  });
+
   it('rejects unknown unit types, factions, and oversize stacks', () => {
     expect(() => createGame({ ...setup, stacks: [{ owner: 'p1', pos: { q: 0, r: 0 }, units: ['nope'] }] }, fantasy)).toThrow();
     expect(() => createGame({ ...setup, players: [{ id: 'p1', factionId: 'nope' }] }, fantasy)).toThrow();
@@ -153,7 +167,7 @@ describe('applyCommand: turns and stances', () => {
 
   it('commands from later milestones return an error, not a throw', () => {
     const s = createGame(setup, fantasy);
-    const r = applyCommand(s, { type: 'SetProduction', playerId: 'p1', siteId: 'x', unitTypeId: null }, fantasy);
-    expect(r).toEqual({ error: 'SetProduction is not implemented yet' });
+    const r = applyCommand(s, { type: 'Explore', playerId: 'p1', stackId: 's1' }, fantasy);
+    expect(r).toEqual({ error: 'Explore is not implemented yet' });
   });
 });

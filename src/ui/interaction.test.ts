@@ -1,14 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { fantasy } from '../content/fantasy';
+import stringsJson from '../content/fantasy/strings.json';
+import themeJson from '../content/fantasy/theme.json';
+import { createGame } from '../engine/engine';
 import { hexKey } from '../engine/hex';
 import { findPath } from '../engine/movement';
-import { at } from '../engine/test-fixtures';
+import { asciiMap, at } from '../engine/test-fixtures';
+import type { GameState } from '../engine/types';
+import { viewFor } from '../engine/vision';
 import { Game } from './controller';
 import { demoGame } from './demo';
-import { initialUi, type Input, interact, MOVED, type UiState } from './interaction';
+import { idleCities, initialUi, type Input, interact, MOVED, type UiState } from './interaction';
+import { gameOverOverlay } from './panels';
+import { loadStrings } from './strings';
+import { loadTheme } from './theme';
 
 // Demo game: p1 (dwarves) has the host s1 at (6,9) south of the bridge; the orc
-// patrol s6 holds (6,7) north of it on Fall back 40%.
+// patrol s4 holds (6,7) north of it on Fall back 40%.
 const HOST = at(6, 9);
 const PATROL = at(6, 7);
 
@@ -16,6 +24,13 @@ function play(game: Game, inputs: Input[], start: UiState = initialUi): UiState 
   let ui = start;
   for (const input of inputs) ui = game.handle(ui, input).ui;
   return ui;
+}
+
+/** Ends the turn (past the idle-city warning) and starts the next player's: hand-off, then the summary. */
+function passTurn(game: Game, start: UiState = initialUi): UiState {
+  let ui = play(game, [{ kind: 'endTurn' }], start);
+  if (ui.endWarned) ui = play(game, [{ kind: 'endTurn' }], ui);
+  return play(game, [{ kind: 'continue' }, { kind: 'continue' }], ui);
 }
 
 describe('selecting and previewing moves', () => {
@@ -77,21 +92,21 @@ describe('attacking', () => {
     const game = new Game(demoGame(), fantasy);
     const view = game.view();
     let ui = play(game, [{ kind: 'tap', hex: HOST }, { kind: 'tap', hex: PATROL }]);
-    expect(ui.mode).toMatchObject({ kind: 'attack', targetId: 's6', withdrawBelow: 0.3 });
+    expect(ui.mode).toMatchObject({ kind: 'attack', targetId: 's4', withdrawBelow: 0.3 });
     ui = play(game, [{ kind: 'withdraw', delta: 1 }, { kind: 'withdraw', delta: 1 }], ui);
     expect(ui.mode).toMatchObject({ withdrawBelow: 0.4 });
     for (let k = 0; k < 30; k++) ui = play(game, [{ kind: 'withdraw', delta: -1 }], ui);
     expect(ui.mode).toMatchObject({ withdrawBelow: 0 });
     const step = interact(view, fantasy, { mode: { ...ui.mode, withdrawBelow: 0.3 } as UiState['mode'], message: null }, { kind: 'confirm' });
     expect(step.commands.map((c) => c.type)).toEqual(['Move', 'Attack']);
-    expect(step.commands[1]).toMatchObject({ stackId: MOVED, targetStackId: 's6', withdrawBelow: 0.3 });
+    expect(step.commands[1]).toMatchObject({ stackId: MOVED, targetStackId: 's4', withdrawBelow: 0.3 });
   });
 
   it('runs the battle and shows the result', () => {
     const game = new Game(demoGame(), fantasy);
     let ui = play(game, [{ kind: 'tap', hex: HOST }, { kind: 'tap', hex: PATROL }, { kind: 'confirm' }]);
     expect(ui.mode.kind).toBe('result');
-    expect(ui.mode.kind === 'result' && ui.mode.report.defenderStackId).toBe('s6');
+    expect(ui.mode.kind === 'result' && ui.mode.report.defenderStackId).toBe('s4');
     for (const id of game.state.stacks.s1?.unitIds ?? []) expect(game.state.units[id]!.moveLeft).toBe(0);
     ui = play(game, [{ kind: 'continue' }], ui);
     expect(['selected', 'idle']).toContain(ui.mode.kind);
@@ -139,16 +154,24 @@ describe('turns and stances', () => {
 
   it('ends the turn with a hand-off; the next player sees only their own view', () => {
     const game = new Game(demoGame(), fantasy);
+    // Stonebridge and Kettle Ford have nothing in production: the first tap warns.
     let ui = play(game, [{ kind: 'endTurn' }]);
+    expect(ui.mode.kind).toBe('idle');
+    expect(ui.message).toBe('Kettle Ford and Stonebridge have nothing in production. Tap End turn again to end anyway.');
+    expect(game.playerId).toBe('p1');
+    ui = play(game, [{ kind: 'endTurn' }], ui);
     expect(ui.mode).toEqual({ kind: 'handoff', playerId: 'p2' });
     expect(game.playerId).toBe('p2');
-    // Taps do nothing until the new player continues.
+    // Taps do nothing until the new player continues, then the turn summary shows.
     expect(play(game, [{ kind: 'tap', hex: PATROL }], ui)).toEqual(ui);
+    ui = play(game, [{ kind: 'continue' }], ui);
+    expect(ui.mode.kind).toBe('summary');
+    if (ui.mode.kind === 'summary') expect(ui.mode.events).toContainEqual({ kind: 'turn-started', playerId: 'p2', turn: 1 });
     ui = play(game, [{ kind: 'continue' }], ui);
     expect(ui.mode.kind).toBe('idle');
     ui = play(game, [{ kind: 'tap', hex: PATROL }], ui);
-    expect(ui.mode).toMatchObject({ kind: 'selected', stackId: 's6' });
-    expect(Object.keys(game.view().stacks)).not.toContain('s3'); // dwarf griffins far away stay hidden
+    expect(ui.mode).toMatchObject({ kind: 'selected', stackId: 's4' });
+    expect(Object.keys(game.view().stacks)).not.toContain('s2'); // dwarf griffins far away stay hidden
   });
 
   it('continues saved routes when your turn starts, and drops routes with no path', () => {
@@ -157,12 +180,56 @@ describe('turns and stances', () => {
     play(game, [{ kind: 'tap', hex: HOST }, { kind: 'tap', hex: far }, { kind: 'confirm' }]);
     const midway = game.state.stacks.s1!.pos;
     // p1 ends, p2 ends, p1 continues: the host moves on.
-    let ui = play(game, [{ kind: 'endTurn' }, { kind: 'continue' }, { kind: 'endTurn' }, { kind: 'continue' }]);
+    let ui = passTurn(game, passTurn(game));
     expect(game.state.stacks.s1!.pos).not.toEqual(midway);
     expect(ui.message).toMatch(/continued along its route/);
     // A destination that can no longer be reached is cleared.
     game.state = { ...game.state, stacks: { ...game.state.stacks, s1: { ...game.state.stacks.s1!, destination: at(0, 8) } } };
-    ui = play(game, [{ kind: 'endTurn' }, { kind: 'continue' }, { kind: 'endTurn' }, { kind: 'continue' }], ui);
+    ui = passTurn(game, passTurn(game, ui));
     expect(game.state.stacks.s1!.destination).toBeUndefined();
+  });
+});
+
+describe('hot-seat turn changes', () => {
+  /** A round-2 game where p2 holds no city, so p2 is eliminated at the start of their turn. */
+  function cityless(players: string[]): GameState {
+    const map = asciiMap(['......', '......'], [
+      { at: at(0, 0), tier: 'city', owner: 'p1' },
+      ...(players.includes('p3') ? [{ at: at(5, 1), tier: 'city' as const, owner: 'p3' }] : []),
+    ], { turnLimit: 40, domination: 1 });
+    const factions = ['dwarves', 'orc-horde', 'elves'];
+    const s = createGame({ seed: 1, map, players: players.map((id, k) => ({ id, factionId: factions[k]! })), stacks: [] }, fantasy);
+    return { ...s, turn: 2 };
+  }
+
+  it('hands the device to the player whose turn it really is when the next one is eliminated', () => {
+    const game = new Game(cityless(['p1', 'p2', 'p3']), fantasy);
+    const ui = play(game, [{ kind: 'endTurn' }]);
+    expect(ui.mode).toEqual({ kind: 'handoff', playerId: 'p3' });
+    expect(game.playerId).toBe('p3');
+    expect(game.state.players.find((p) => p.id === 'p2')!.eliminated).toBe(true);
+  });
+
+  it('skips the hand-off when the turn change ends the game, and names the winner, not "you"', () => {
+    const game = new Game(cityless(['p1', 'p2']), fantasy);
+    const ui = play(game, [{ kind: 'endTurn' }]);
+    expect(ui.mode).toEqual({ kind: 'idle' });
+    expect(game.state.winner).toEqual({ playerId: 'p1', reason: 'last-standing' });
+    // The view now belongs to the eliminated p2, yet the card still reads the same for whoever holds the device.
+    const ctx = { view: viewFor(game.state, fantasy, 'p2'), content: fantasy, strings: loadStrings(stringsJson), theme: loadTheme(themeJson, fantasy) };
+    const html = gameOverOverlay(ctx);
+    expect(html).toContain('Victory for the Dwarves');
+    expect(html).toContain('Won as the last player standing.');
+  });
+
+  it('does not warn about an idle city that has nothing this faction may build', () => {
+    // The dwarves hold a city whose list names only the orcs' Trolls.
+    const map = asciiMap(['....'], [
+      { at: at(0, 0), tier: 'city', owner: 'p1', builds: ['trolls'], name: 'Trollgate' },
+      { at: at(3, 0), tier: 'city', owner: 'p1', builds: ['militia'], name: 'Fieldholm' },
+      { at: at(2, 0), tier: 'city', owner: 'p2', builds: ['militia'] },
+    ]);
+    const g = createGame({ seed: 1, map, players: [{ id: 'p1', factionId: 'dwarves' }, { id: 'p2', factionId: 'orc-horde' }], stacks: [] }, fantasy);
+    expect(idleCities(viewFor(g, fantasy, 'p1'), fantasy)).toEqual(['Fieldholm']);
   });
 });

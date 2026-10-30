@@ -13,6 +13,11 @@ import type { BannerShape, Theme } from './theme';
 
 const flat = (pts: Point[]) => pts.flatMap((p) => [p.x, p.y]);
 
+/** Empties a redrawn layer, destroying what it held so Graphics and Text textures are freed. */
+function clear(layer: Container): void {
+  for (const child of layer.removeChildren()) child.destroy({ children: true });
+}
+
 export interface Selection {
   stackId: string;
   reach: Reach;
@@ -36,14 +41,17 @@ export class MapView {
   private plan = new Container();
   private fog = new Graphics();
   private stacks = new Container();
+  private cities = new Container();
+  /** One Graphics and label per city site, with the state they last showed. */
+  private cityDrawings = new Map<string, { g: Graphics; label: Text; key: string }>();
 
   constructor(private theme: Theme) {
-    this.world.addChild(this.terrain, this.fog, this.overlay, this.stacks, this.plan);
+    this.world.addChild(this.terrain, this.cities, this.fog, this.overlay, this.stacks, this.plan);
   }
 
   /** Draws the static layers (terrain, roads, crossings, cities). Call once per map. */
   drawMap(view: PlayerView): void {
-    this.terrain.removeChildren();
+    clear(this.terrain);
     const ground = new Graphics();
     const grid = new Graphics();
     for (const h of allHexes(view.map)) {
@@ -51,7 +59,7 @@ export class MapView {
       ground.poly(corners).fill(this.theme.terrain[terrainAt(view.map, h)!] ?? '#000000');
       grid.poly(corners).stroke({ width: 1, color: '#23251F', alpha: 0.32 });
     }
-    this.terrain.addChild(ground, this.drawTerrainMarks(view), grid, this.drawRoads(view), this.drawCities(view));
+    this.terrain.addChild(ground, this.drawTerrainMarks(view), grid, this.drawRoads(view));
   }
 
   /** Small marks so terrain reads without relying on color alone. */
@@ -112,44 +120,67 @@ export class MapView {
     return g;
   }
 
-  private drawCities(view: PlayerView): Container {
-    const layer = new Container();
+  /**
+   * Cities change hands, tier, and production during play, so they follow the
+   * state. Each site keeps one Graphics and one label, redrawn only when what
+   * they show changes; most renders touch none of them.
+   */
+  private drawCities(view: PlayerView, highlight?: Hex): void {
     for (const site of view.map.sites) {
+      const city = view.cities[site.id]!;
+      const highlighted = highlight !== undefined && highlight.q === site.pos.q && highlight.r === site.pos.r;
+      const key = [city.owner, city.tier, city.razed, city.production !== null, city.secured, highlighted].join('|');
+      let drawn = this.cityDrawings.get(site.id);
+      if (drawn?.key === key) continue;
+      if (!drawn) {
+        const label = new Text({
+          text: site.name,
+          style: { fontFamily: 'Source Sans 3, system-ui, sans-serif', fontSize: 11, fontWeight: '700', fill: '#FFF8EA', stroke: { color: '#15171B', width: 3 } },
+        });
+        label.anchor.set(0.5, 0);
+        drawn = { g: new Graphics(), label, key };
+        this.cityDrawings.set(site.id, drawn);
+        this.cities.addChild(drawn.g, drawn.label);
+      }
+      drawn.key = key;
       const c = hexToPixel(site.pos);
-      const owner = view.cityOwners[site.id];
-      const faction = view.players.find((p) => p.id === owner)?.factionId;
+      const faction = view.players.find((p) => p.id === city.owner)?.factionId;
       const ring = faction ? this.theme.factions[faction]!.color : this.theme.ui.neutral;
-      const size = site.tier === 'village' ? 9 : site.tier === 'city' ? 12 : 14;
-      const g = new Graphics();
-      g.roundRect(c.x - size, c.y - size, size * 2, size * 2, 3).fill('#3A3328').stroke({ width: 2.5, color: ring });
-      // Battlements.
-      for (let k = -1; k <= 1; k++) g.rect(c.x + k * size * 0.6 - 2, c.y - size - 4, 4, 4).fill('#3A3328');
-      const label = new Text({
-        text: site.name,
-        style: { fontFamily: 'Source Sans 3, system-ui, sans-serif', fontSize: 11, fontWeight: '700', fill: '#FFF8EA', stroke: { color: '#15171B', width: 3 } },
-      });
-      label.anchor.set(0.5, 0);
-      label.position.set(c.x, c.y + size + 2);
-      layer.addChild(g, label);
+      const size = city.tier === 'village' ? 9 : city.tier === 'city' ? 12 : 14;
+      const g = drawn.g.clear();
+      if (highlighted) g.circle(c.x, c.y, 24).stroke({ width: 3, color: this.theme.ui.path });
+      if (city.razed) {
+        // Rubble: broken walls, no owner.
+        for (const [dx, dy, w] of [[-9, 2, 8], [1, -4, 7], [-2, 6, 10]] as const) g.rect(c.x + dx, c.y + dy, w, 4).fill('#5E5547');
+      } else {
+        g.roundRect(c.x - size, c.y - size, size * 2, size * 2, 3).fill('#3A3328').stroke({ width: 2.5, color: ring, alpha: city.secured || !city.owner ? 1 : 0.55 });
+        // Battlements.
+        for (let k = -1; k <= 1; k++) g.rect(c.x + k * size * 0.6 - 2, c.y - size - 4, 4, 4).fill('#3A3328');
+        // Something in production (only the owner sees this).
+        if (city.production) g.circle(c.x + size, c.y - size, 4).fill(this.theme.ui.path).stroke({ width: 1.5, color: '#15171B' });
+      }
+      // Setting the same text again is free in PixiJS; a change re-renders the label once.
+      drawn.label.text = city.razed ? `${site.name} (ruins)` : site.name;
+      drawn.label.position.set(c.x, c.y + size + 2);
     }
-    return layer;
   }
 
-  /** Draws what changes: fog, stacks, and the selection overlay. */
-  drawState(view: PlayerView, selection: Selection | null, plan: Plan | null = null): void {
+  /** Draws what changes: cities, fog, stacks, and the selection overlay. `city` marks the open city panel's city. */
+  drawState(view: PlayerView, selection: Selection | null, plan: Plan | null = null, city?: Hex): void {
+    this.drawCities(view, city);
     const visible = new Set(view.visible);
     this.fog.clear();
     for (const h of allHexes(view.map)) {
       if (!visible.has(hexKey(h))) this.fog.poly(flat(hexCorners(hexToPixel(h)))).fill({ color: '#15171B', alpha: 0.28 });
     }
     this.drawOverlay(selection);
-    this.stacks.removeChildren();
+    clear(this.stacks);
     for (const stack of Object.values(view.stacks)) this.stacks.addChild(this.drawStack(view, stack, stack.id === selection?.stackId));
     this.drawPlan(plan);
   }
 
   private drawPlan(plan: Plan | null): void {
-    this.plan.removeChildren();
+    clear(this.plan);
     if (!plan) return;
     const g = new Graphics();
     const color = this.theme.ui.path;

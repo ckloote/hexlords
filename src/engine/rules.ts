@@ -31,4 +31,20 @@ export const RULES = {
   cityDefensePct: { village: 0, city: 25, capital: 50 },
   /** Units per stack. */
   maxStackSize: 8,
+  /** City income in gold per turn by tier; also the city's score. */
+  cityIncome: { village: 5, city: 10, capital: 20 },
+  /** Pillage pays this many turns of the city's income, then drops it a tier (a village is razed). */
+  pillageTurns: 3,
+  /** Hits healed per unit at the start of its owner's turn. */
+  healField: 1,
+  healCity: 2,
+  /** Units tagged regenerates heal at least this much, even after moving or fighting. */
+  healRegenerates: 1,
+  /** Gold each player starts with unless the scenario says otherwise. */
+  startingGold: 50,
+  /** Victory defaults when a map sets none. */
+  turnLimit: 40,
+  dominationShare: 0.5,
+  /** A player whose current income passes this share of the total triggers the last-stand warning. */
+  lastStandShare: 0.5,
 } as const;

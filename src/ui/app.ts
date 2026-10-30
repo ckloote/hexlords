@@ -7,17 +7,33 @@ import { fantasy } from '../content/fantasy';
 import stringsJson from '../content/fantasy/strings.json';
 import themeJson from '../content/fantasy/theme.json';
 import { fromOffset } from '../engine/hex';
-import { inBounds } from '../engine/map';
+import { inBounds, siteById } from '../engine/map';
 import { reachable } from '../engine/movement';
 import type { PlayerView } from '../engine/vision';
 import { Camera } from './camera';
+import { cityCard } from './cityCard';
 import { Game } from './controller';
 import { demoGame } from './demo';
 import { hexToPixel, mapBounds, pixelToHex } from './hexLayout';
 import { initialUi, type Input, type UiState } from './interaction';
 import { MapView, type Plan, type Selection } from './mapView';
-import { attackPanel, esc, idlePanel, movePanel, type PanelContext, resultPanel, stackPanel } from './panels';
-import { loadStrings } from './strings';
+import {
+  attackPanel,
+  capturePanel,
+  cityPanel,
+  esc,
+  gameOverOverlay,
+  idlePanel,
+  movePanel,
+  type PanelContext,
+  resultPanel,
+  stackPanel,
+  summaryOverlay,
+  topBar,
+} from './panels';
+import { scoreboard } from './scoreboard';
+import { factionName, loadStrings } from './strings';
+import { buildSummary } from './summary';
 import { loadTheme } from './theme';
 
 export async function startApp(root: HTMLElement, buildStamp: string): Promise<void> {
@@ -29,9 +45,7 @@ export async function startApp(root: HTMLElement, buildStamp: string): Promise<v
   root.innerHTML = `
     <div class="game">
       <header class="topbar">
-        <span class="banner" data-ref="banner"></span>
-        <span class="faction" data-ref="faction"></span>
-        <span class="turn" data-ref="turn"></span>
+        <div class="board" data-ref="board"></div>
       </header>
       <div class="map" aria-label="Map">
         <div class="toast" data-ref="toast" role="status" aria-live="polite"></div>
@@ -43,6 +57,8 @@ export async function startApp(root: HTMLElement, buildStamp: string): Promise<v
       </div>
       <section class="panel" data-ref="panel" aria-live="polite"></section>
       <div class="handoff" data-ref="handoff" hidden></div>
+      <div class="handoff summary" data-ref="summary" hidden></div>
+      <div class="handoff gameover" data-ref="gameover" hidden></div>
     </div>`;
   const ref = <T extends HTMLElement>(name: string) => root.querySelector<T>(`[data-ref="${name}"]`)!;
   const mapEl = root.querySelector<HTMLDivElement>('.map')!;
@@ -72,14 +88,8 @@ export async function startApp(root: HTMLElement, buildStamp: string): Promise<v
 
   function render(): void {
     const view = game.view();
-    const player = view.players.find((p) => p.id === view.viewer)!;
-    const faction = fantasy.factions[player.factionId]!;
-    const look = theme.factions[player.factionId]!;
-    const banner = ref('banner');
-    banner.className = `banner ${look.shape}`;
-    banner.style.setProperty('--faction', look.color);
-    ref('faction').textContent = faction.name;
-    ref('turn').textContent = `Turn ${view.turn}`;
+    const ctx: PanelContext = { view, content: fantasy, strings, theme };
+    ref('board').innerHTML = topBar(ctx, scoreboard(view, fantasy));
     const ready = Object.values(view.stacks).filter((s) => s.owner === view.viewer && s.unitIds.every((id) => view.units[id]!.moveLeft > 0)).length;
     ref('ready').textContent = ready ? String(ready) : '';
 
@@ -100,24 +110,33 @@ export async function startApp(root: HTMLElement, buildStamp: string): Promise<v
         plan = { path: [stack.pos, ...mode.path], markers: [], target: view.stacks[mode.targetId]?.pos };
       }
     }
-    mapView.drawState(view, selection, plan);
+    const city = mode.kind === 'city' || mode.kind === 'capture' ? siteById(view.map, mode.siteId)?.pos : undefined;
+    mapView.drawState(view, selection, plan, city);
 
-    const ctx: PanelContext = { view, content: fantasy, strings, theme };
     const panel = ref('panel');
     panel.innerHTML =
       mode.kind === 'selected' ? stackPanel(ctx, mode)
       : mode.kind === 'move' ? movePanel(ctx, mode)
       : mode.kind === 'attack' ? attackPanel(ctx, mode)
-      : mode.kind === 'result' ? resultPanel(ctx, mode.report)
+      : mode.kind === 'result' ? resultPanel(ctx, mode.report, mode.lostCities)
+      : mode.kind === 'city' ? cityPanel(ctx, cityCard(view, fantasy, strings, mode.siteId))
+      : mode.kind === 'capture' ? capturePanel(ctx, mode.siteId)
       : idlePanel();
     panel.dataset.mode = mode.kind;
+
+    const summary = ref('summary');
+    summary.hidden = mode.kind !== 'summary';
+    if (mode.kind === 'summary') summary.innerHTML = summaryOverlay(ctx, buildSummary(view, fantasy, strings, mode.events));
+    const over = ref('gameover');
+    over.hidden = !view.winner;
+    if (view.winner) over.innerHTML = gameOverOverlay(ctx);
 
     const handoff = ref('handoff');
     handoff.hidden = mode.kind !== 'handoff';
     if (mode.kind === 'handoff') {
       const next = view.players.find((p) => p.id === mode.playerId)!;
       const nextLook = theme.factions[next.factionId]!;
-      const name = esc(fantasy.factions[next.factionId]!.name);
+      const name = esc(factionName(view, fantasy, next.id));
       handoff.innerHTML = `<div class="handoff-card"><span class="banner big ${nextLook.shape}" style="--faction:${nextLook.color}"></span>
         <h2>Pass to the ${name}</h2><p>Hand the device over. The next view shows only what the ${name} can see.</p>
         <button class="primary" data-input="continue">Start the ${name} turn</button></div>`;
@@ -158,6 +177,14 @@ export async function startApp(root: HTMLElement, buildStamp: string): Promise<v
         return send({ kind: 'stanceThreshold', delta });
       case 'withdraw':
         return send({ kind: 'withdraw', delta });
+      case 'openCity':
+        return send({ kind: 'openCity', siteId: target.dataset.site! });
+      case 'build':
+        return send({ kind: 'build', unitTypeId: target.dataset.unit || null });
+      case 'capture':
+        return send({ kind: 'capture', choice: target.dataset.choice as 'occupy' | 'pillage' | 'raze' });
+      case 'newGame':
+        return window.location.reload();
       case 'clearSplit':
       case 'cancel':
       case 'confirm':

@@ -3,7 +3,8 @@
 
 import { type BattleOutcome, resolveBattle } from './battle';
 import { canAdvance, planAttack } from './combat';
-import { applyMove, restoreMovement } from './move';
+import { captureAt, resolveCapture, setProduction } from './cities';
+import { applyMove } from './move';
 import type { ContentPack } from './content';
 import { type Hex, hexKey, sameHex } from './hex';
 import { inBounds, type MapState } from './map';
@@ -12,12 +13,15 @@ import { visibleHexes } from './vision';
 import { type BattleContext, battleModifiers, type Combatant } from './modifiers';
 import { seedRng } from './rng';
 import { RULES } from './rules';
-import type { BattleReport, Command, CommandResult, GameState, Stack, Stance, Unit } from './types';
+import { endTurn } from './turn';
+import type { BattleReport, Command, CommandResult, GameEvent, GameState, Stack, Stance, Unit } from './types';
 
 export interface GameSetup {
   seed: number | string;
   map: MapState;
   players: { id: string; factionId: string }[];
+  /** Gold each player starts with; default RULES.startingGold. */
+  startingGold?: number;
   stacks: {
     owner: string;
     pos: Hex;
@@ -41,21 +45,34 @@ export function createGame(setup: GameSetup, content: ContentPack): GameState {
       return { id: p.id, factionId: p.factionId, eliminated: false };
     }),
     map: setup.map,
-    cityOwners: {},
+    cities: {},
     stacks: {},
     units: {},
     explored: {},
     nextId: 1,
+    nextUnitId: 1,
+    gold: {},
+    pendingCaptures: [],
   };
   if (state.players.length === 0) throw new Error('A game needs players');
+  const startingGold = setup.startingGold ?? RULES.startingGold;
+  if (!Number.isInteger(startingGold) || startingGold < 0) throw new Error('startingGold must be a whole number of 0 or more');
+  for (const p of state.players) state.gold[p.id] = startingGold;
   for (const site of setup.map.sites) {
     const owner = site.startOwner;
     if (owner !== null && !state.players.some((p) => p.id === owner)) {
       throw new Error(`City ${site.name} belongs to unknown player "${owner}"`);
     }
-    state.cityOwners[site.id] = owner;
+    // Starting cities count as secured from the first turn.
+    state.cities[site.id] = {
+      owner,
+      tier: site.tier,
+      razed: false,
+      production: null,
+      held: owner !== null,
+      secured: owner !== null,
+    };
   }
-  let nextUnit = 1;
   for (const s of setup.stacks) {
     if (!state.players.some((p) => p.id === s.owner)) throw new Error(`Unknown owner "${s.owner}"`);
     if (s.units.length === 0 || s.units.length > RULES.maxStackSize) throw new Error('Stacks hold 1 to 8 units');
@@ -64,7 +81,7 @@ export function createGame(setup: GameSetup, content: ContentPack): GameState {
       const { typeId, hits } = typeof u === 'string' ? { typeId: u, hits: undefined } : u;
       const type = content.units[typeId];
       if (!type) throw new Error(`Unknown unit type "${typeId}"`);
-      const unit: Unit = { id: `u${nextUnit++}`, typeId, hits: hits ?? type.hits, moveLeft: type.move };
+      const unit: Unit = { id: `u${state.nextUnitId++}`, typeId, hits: hits ?? type.hits, moveLeft: type.move };
       if (unit.hits < 1 || unit.hits > type.hits) throw new Error(`Bad hits for ${typeId}`);
       state.units[unit.id] = unit;
       return unit.id;
@@ -85,11 +102,15 @@ const validThreshold = (t: unknown) => typeof t === 'number' && t >= 0 && t <= 1
 
 export function applyCommand(state: GameState, command: Command, content: ContentPack): CommandResult {
   const player = state.players[state.currentPlayer];
+  if (state.winner) return { error: 'The game is over' };
   if (!player || command.playerId !== player.id) return { error: `It is not ${command.playerId}'s turn` };
+  if (state.pendingCaptures.length > 0 && command.type === 'EndTurn') {
+    return { error: 'Choose what to do with the captured cities first' };
+  }
 
   switch (command.type) {
     case 'EndTurn':
-      return endTurn(state, content);
+      return withExplored(endTurn(state, content), content);
     case 'SetStance': {
       const stack = state.stacks[command.stackId];
       if (!stack || stack.owner !== player.id) return { error: 'You do not own that stack' };
@@ -108,8 +129,11 @@ export function applyCommand(state: GameState, command: Command, content: Conten
       return { state: { ...state, stacks: { ...state.stacks, [stack.id]: cleared } }, events: [] };
     }
     case 'Move':
-      return withExplored(applyMove(state, command, content), content);
+      return withExplored(captureAfterMove(applyMove(state, command, content)), content);
     case 'SetProduction':
+      return setProduction(state, content, player.id, command.siteId, command.unitTypeId);
+    case 'ResolveCapture':
+      return resolveCapture(state, player.id, command.siteId, command.choice);
     case 'Explore':
       return { error: `${command.type} is not implemented yet` };
     default:
@@ -143,18 +167,14 @@ function withExplored(result: CommandResult, content: ContentPack): CommandResul
   return 'error' in result ? result : { ...result, state: refreshExplored(result.state, content) };
 }
 
-function endTurn(state: GameState, content: ContentPack): CommandResult {
-  const n = state.players.length;
-  let next = state.currentPlayer;
-  let turn = state.turn;
-  for (let k = 0; k < n; k++) {
-    next = (next + 1) % n;
-    if (next === 0) turn++;
-    if (!state.players[next]!.eliminated) break;
-  }
-  const player = state.players[next]!.id;
-  const s = restoreMovement({ ...state, currentPlayer: next, turn }, content, player, RULES.retreatMovePenaltyPct);
-  return { state: s, events: [{ kind: 'turn-started', playerId: s.players[next]!.id, turn }] };
+/** A move that ends on a city someone else holds takes it; the player then chooses its fate. */
+function captureAfterMove(result: CommandResult): CommandResult {
+  if ('error' in result) return result;
+  const moved = result.events.find((e) => e.kind === 'moved');
+  if (!moved || moved.kind !== 'moved') return result;
+  const id = moved.mergedInto ?? moved.stackId;
+  const capture = captureAt(result.state, id, true);
+  return { state: capture.state, events: [...result.events, ...capture.events] };
 }
 
 function attack(
@@ -212,7 +232,9 @@ function attack(
   const defenders = settle(defender, defenderHits);
 
   // An attack ends the attacking stack's movement for the turn, whatever happens.
-  for (const id of attackers) units[id] = { ...units[id]!, moveLeft: 0 };
+  // Both sides fought, so neither heals in the field next turn.
+  for (const id of attackers) units[id] = { ...units[id]!, moveLeft: 0, acted: true };
+  for (const id of defenders) units[id] = { ...units[id]!, acted: true };
 
   // A withdrawing or evading defender moves to its retreat hex, merging with a friendly stack there.
   let defenderRetreatTo: Hex | undefined;
@@ -242,6 +264,8 @@ function attack(
 
   const report: BattleReport = {
     kind: 'battle',
+    attackerOwner: attacker.owner,
+    defenderOwner: defender.owner,
     attackerStackId: attacker.id,
     defenderStackId: defender.id,
     attackerUnitIds: [...attacker.unitIds],
@@ -252,5 +276,23 @@ function attack(
     attackerAdvanced,
   };
   if (defenderRetreatTo) report.defenderRetreatTo = defenderRetreatTo;
-  return { state: refreshExplored({ ...state, rng, units, stacks }, content), events: [report] };
+
+  // Advancing into a city takes it (the attacker then chooses its fate). A defender
+  // falling back into an empty city someone else holds simply occupies it.
+  let next: GameState = { ...state, rng, units, stacks };
+  const events: GameEvent[] = [report];
+  if (defenderRetreatTo) {
+    const holder = Object.values(stacks).find((st) => st.owner === defender.owner && sameHex(st.pos, defenderRetreatTo));
+    if (holder) {
+      const r = captureAt(next, holder.id, false);
+      next = r.state;
+      events.push(...r.events);
+    }
+  }
+  if (attackerAdvanced) {
+    const r = captureAt(next, attacker.id, true);
+    next = r.state;
+    events.push(...r.events);
+  }
+  return { state: refreshExplored(next, content), events };
 }

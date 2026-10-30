@@ -10,6 +10,18 @@
  "tileheight": 50,
  "hexsidelength": 25,
  "infinite": false,
+ "properties": [
+  {
+   "name": "turnLimit",
+   "type": "int",
+   "value": 40
+  },
+  {
+   "name": "domination",
+   "type": "float",
+   "value": 0.5
+  }
+ ],
  "tilesets": [
   {
    "firstgid": 1,
@@ -215,6 +227,11 @@
        "name": "owner",
        "type": "string",
        "value": "p2"
+      },
+      {
+       "name": "builds",
+       "type": "string",
+       "value": "militia,archers,infantry,trolls"
       }
      ]
     },
@@ -234,6 +251,16 @@
        "name": "tier",
        "type": "string",
        "value": "village"
+      },
+      {
+       "name": "owner",
+       "type": "string",
+       "value": "p2"
+      },
+      {
+       "name": "builds",
+       "type": "string",
+       "value": "militia,griffins"
       }
      ]
     },
@@ -258,6 +285,11 @@
        "name": "owner",
        "type": "string",
        "value": "p1"
+      },
+      {
+       "name": "builds",
+       "type": "string",
+       "value": "militia,infantry"
       }
      ]
     },
@@ -282,6 +314,35 @@
        "name": "owner",
        "type": "string",
        "value": "p1"
+      },
+      {
+       "name": "builds",
+       "type": "string",
+       "value": "militia,archers,infantry,siege-engine,ironguard"
+      }
+     ]
+    },
+    {
+     "id": 5,
+     "name": "Ashvale",
+     "type": "city",
+     "point": true,
+     "x": 132.0,
+     "y": 212.5,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "tier",
+       "type": "string",
+       "value": "city"
+      },
+      {
+       "name": "builds",
+       "type": "string",
+       "value": "militia,archers,infantry,cavalry"
       }
      ]
     }

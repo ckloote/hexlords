@@ -6,7 +6,7 @@ import type { ContentPack } from './content';
 import { type Hex, hexesWithin, hexKey } from './hex';
 import { inBounds, terrainAt } from './map';
 import { RULES } from './rules';
-import type { GameState, PlayerId, Stack, World } from './types';
+import type { CityState, GameState, PendingCapture, PlayerId, Stack, Winner, World } from './types';
 
 /** Vision radius of these units standing on `pos`: the best unit's vision plus the terrain bonus. */
 export function visionRadius(world: World, content: ContentPack, unitIds: readonly string[], pos: Hex): number {
@@ -28,7 +28,7 @@ export function visibleHexes(world: World, content: ContentPack, playerId: Playe
   for (const stack of Object.values(world.stacks)) {
     if (stack.owner === playerId) add(stack.pos, stackVision(world, content, stack));
   }
-  for (const site of world.map.sites) if (world.cityOwners[site.id] === playerId) add(site.pos, RULES.cityVision);
+  for (const site of world.map.sites) if (world.cities[site.id]?.owner === playerId) add(site.pos, RULES.cityVision);
   return seen;
 }
 
@@ -52,6 +52,11 @@ export interface PlayerView extends World {
   visible: string[];
   /** hexKeys ever seen. */
   explored: string[];
+  /** The viewer's own treasury; other players' gold is private. */
+  gold: number;
+  /** The viewer's captures awaiting a choice (empty unless it is their turn). */
+  pendingCaptures: PendingCapture[];
+  winner?: Winner;
 }
 
 export function viewFor(state: GameState, content: ContentPack, playerId: PlayerId): PlayerView {
@@ -63,19 +68,32 @@ export function viewFor(state: GameState, content: ContentPack, playerId: Player
     stacks[stack.id] = cloneStack(stack);
     for (const id of stack.unitIds) units[id] = { ...state.units[id]! };
   }
-  return {
+  const view: PlayerView = {
     viewer: playerId,
     contentId: state.contentId,
     turn: state.turn,
     currentPlayer: state.currentPlayer,
     map: state.map,
     players: state.players.map((p) => ({ ...p })),
-    cityOwners: { ...state.cityOwners },
+    cities: viewCities(state.cities, playerId),
     stacks,
     units,
     visible: [...visible].sort(),
     explored: Object.keys(state.explored[playerId] ?? {}).sort(),
+    gold: state.gold[playerId] ?? 0,
+    pendingCaptures: state.players[state.currentPlayer]?.id === playerId ? state.pendingCaptures.map((p) => ({ ...p })) : [],
   };
+  if (state.winner) view.winner = { ...state.winner };
+  return view;
+}
+
+/** Ownership, tier, and secured status are public; only the owner sees what a city is building. */
+function viewCities(cities: Record<string, CityState>, playerId: PlayerId): Record<string, CityState> {
+  const out: Record<string, CityState> = {};
+  for (const [id, c] of Object.entries(cities)) {
+    out[id] = { ...c, production: c.owner === playerId && c.production ? { ...c.production } : null };
+  }
+  return out;
 }
 
 function cloneStack(stack: Stack): Stack {
