@@ -13,6 +13,8 @@ export const TAGS = {
   /** Bonus when defending. */
   defenseBonus: 'defense-bonus',
   flying: 'flying',
+  /** Ignores zone of control when stepping into forest. */
+  forestZocImmune: 'forest-zoc-immune',
   regenerates: 'regenerates',
   mounted: 'mounted',
 } as const;

@@ -2,6 +2,7 @@
 
 import type { BattleEvent, BattleOutcome } from './battle';
 import type { Hex } from './hex';
+import type { MapState } from './map';
 import type { ModifierLine } from './modifiers';
 import type { RngState } from './rng';
 
@@ -18,6 +19,10 @@ export interface Unit {
   typeId: string;
   /** Remaining hits; damage persists between battles. */
   hits: number;
+  /** Movement points left this turn (doubled scale: plains cost 2). */
+  moveLeft: number;
+  /** Retreated since its owner's last turn; starts the next turn with half movement. */
+  retreated?: boolean;
 }
 
 /** Standing order for a field stack when attacked. */
@@ -29,9 +34,19 @@ export interface Stack {
   pos: Hex;
   unitIds: string[];
   stance: Stance;
+  /** Rest of a multi-turn route, for the UI to issue again next turn. */
+  route?: Hex[];
 }
 
-export interface GameState {
+/** The parts of the state that describe the board; shared by the full state and a player's view. */
+export interface World {
+  map: MapState;
+  players: Player[];
+  stacks: Record<string, Stack>;
+  units: Record<string, Unit>;
+}
+
+export interface GameState extends World {
   version: 1;
   contentId: string;
   seed: number | string;
@@ -39,9 +54,8 @@ export interface GameState {
   turn: number;
   /** Index into `players` of the player whose turn it is. */
   currentPlayer: number;
-  players: Player[];
-  stacks: Record<string, Stack>;
-  units: Record<string, Unit>;
+  /** Hexes each player has ever seen, keyed by hexKey. */
+  explored: Record<PlayerId, Record<string, true>>;
   nextId: number;
 }
 

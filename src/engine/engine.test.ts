@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { fantasy } from '../content/fantasy';
 import { applyCommand, createGame, type GameSetup, replay } from './engine';
+import { plainsMap } from './test-fixtures';
 import type { Command, GameState } from './types';
 
 const setup: GameSetup = {
   seed: 'test',
+  map: plainsMap(10, 10),
   players: [
     { id: 'p1', factionId: 'dwarves' },
     { id: 'p2', factionId: 'orc-horde' },

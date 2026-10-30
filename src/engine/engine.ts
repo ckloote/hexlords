@@ -3,7 +3,10 @@
 
 import { resolveBattle } from './battle';
 import type { ContentPack } from './content';
-import { hexDistance, type Hex } from './hex';
+import { hexDistance, hexKey, type Hex } from './hex';
+import { inBounds, type MapState } from './map';
+import { canEnter, moverFor } from './movement';
+import { visibleHexes } from './vision';
 import { type BattleContext, battleModifiers, type Combatant } from './modifiers';
 import { seedRng } from './rng';
 import { RULES } from './rules';
@@ -11,6 +14,7 @@ import type { Command, CommandResult, GameState, Stack, Stance, Unit } from './t
 
 export interface GameSetup {
   seed: number | string;
+  map: MapState;
   players: { id: string; factionId: string }[];
   stacks: {
     owner: string;
@@ -34,8 +38,10 @@ export function createGame(setup: GameSetup, content: ContentPack): GameState {
       if (!content.factions[p.factionId]) throw new Error(`Unknown faction "${p.factionId}"`);
       return { id: p.id, factionId: p.factionId, eliminated: false };
     }),
+    map: setup.map,
     stacks: {},
     units: {},
+    explored: {},
     nextId: 1,
   };
   if (state.players.length === 0) throw new Error('A game needs players');
@@ -48,14 +54,21 @@ export function createGame(setup: GameSetup, content: ContentPack): GameState {
       const { typeId, hits } = typeof u === 'string' ? { typeId: u, hits: undefined } : u;
       const type = content.units[typeId];
       if (!type) throw new Error(`Unknown unit type "${typeId}"`);
-      const unit: Unit = { id: `u${nextUnit++}`, typeId, hits: hits ?? type.hits };
+      const unit: Unit = { id: `u${nextUnit++}`, typeId, hits: hits ?? type.hits, moveLeft: type.move };
       if (unit.hits < 1 || unit.hits > type.hits) throw new Error(`Bad hits for ${typeId}`);
       state.units[unit.id] = unit;
       return unit.id;
     });
+    if (!inBounds(state.map, s.pos)) throw new Error(`Stack ${id} is off the map`);
+    if (Object.values(state.stacks).some((o) => hexKey(o.pos) === hexKey(s.pos))) {
+      throw new Error(`Two stacks on ${hexKey(s.pos)}`);
+    }
     state.stacks[id] = { id, owner: s.owner, pos: { ...s.pos }, unitIds, stance: s.stance ?? { kind: 'hold' } };
+    if (!canEnter(state, content, moverFor(state, content, s.owner, unitIds), s.pos)) {
+      throw new Error(`Stack ${id} stands on terrain it cannot enter`);
+    }
   }
-  return state;
+  return refreshExplored(state, content);
 }
 
 const validThreshold = (t: unknown) => typeof t === 'number' && t >= 0 && t <= 1;
@@ -86,6 +99,17 @@ export function applyCommand(state: GameState, command: Command, content: Conten
     default:
       return { error: `Unknown command ${(command as { type: string }).type}` };
   }
+}
+
+/** Adds every player's currently visible hexes to their explored set. */
+export function refreshExplored(state: GameState, content: ContentPack): GameState {
+  const explored = { ...state.explored };
+  for (const p of state.players) {
+    const mine = { ...explored[p.id] };
+    for (const key of visibleHexes(state, content, p.id)) mine[key] = true;
+    explored[p.id] = mine;
+  }
+  return { ...state, explored };
 }
 
 /** Applies commands in order, throwing on the first error. Handy for replays and tests. */
