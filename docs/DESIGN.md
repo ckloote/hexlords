@@ -113,15 +113,19 @@ A losing stack can retreat to save its survivors, but it pays with a pursuit str
 - Field stacks carry a standing order, because a defender is not online during the attacker's turn in async multiplayer:
   - **Hold:** fight to the last unit.
   - **Fall back:** retreat if win chance drops below a set threshold.
-  - **Evade:** avoid battle with a stronger stack, only if at least as fast as the attacker.
+  - **Evade:** Fall back at 50%, but leave before the first duel when possible. Before any duel, the stack evades if its own exact win chance is below 50%, every evading unit is at least as fast as the attacker's fastest unit (the same test as a clean break), and it has a legal retreat hex. An evading stack takes no pursuit and fights no battle, and loses movement like any retreating stack. If it cannot evade, it fights as Fall back at 50%.
+- Stances are public: anyone who can see a stack sees its stance, shown as a banner on the stack. The odds card's exact numbers depend on it, and Evade should be something the attacker plans around, not a surprise.
 - A defender on Fall back gets the mirror-image check at the same moments: it withdraws if its own win chance drops below its threshold. The attacker's check runs first, so if both sides would withdraw at once, the attacker does and the defender keeps the hex.
 - Retreat checks happen between duels, never during one. Thresholds use win chance, not units lost: the weakest units fight first and die early in almost any battle. In the mockup's attack on Gravelmaw, "withdraw after losing 2 units" turned 81% odds into a 4% win rate, while "below 30%" keeps 79%.
 
 **Where retreating stacks go**
 
-- To an adjacent hex that is passable, free of enemies, and away from the attacker.
-- If no such hex exists, the stack cannot retreat. Encirclement, rivers, and passes matter.
-- A defender that retreats starts its next turn with reduced movement.
+- A withdrawing attacker stays in the hex it attacked from, so it can always withdraw.
+- A withdrawing defender moves to one of the three adjacent hexes at distance 2 from the attacker, the hexes behind it; surrounding a stack means blocking those three. The hex must be one every unit in the stack can enter and must hold no enemy. A hex with a friendly stack counts if the merged stack stays at 8 units or fewer, and the stacks merge.
+- Among legal hexes: a friendly city first (it heals faster and defends better), then the lowest move cost for the stack, then a fixed direction order.
+- If no such hex exists, the stack cannot retreat and its Fall back check is skipped. Encirclement, rivers, and passes matter.
+- A defender that retreats starts its next turn with half its movement.
+- An attack ends the attacking stack's movement for the turn, whatever the result. If the defenders are destroyed or withdraw, the attacker moves into their hex for free, but only if every unit in the attacking stack can enter it: a stack without dwarves that beats dwarves on a mountain stays where it is.
 
 **Pursuit**
 
@@ -168,7 +172,7 @@ Movement costs are doubled so roads can cost half without fractions. Infantry ha
 | Swamp | 6 | Mostly an obstacle |
 | Mountains | Impassable | Fliers cross; dwarves cross at 6 |
 | Water | Impassable | Fliers cross; ships come later |
-| River | Impassable | Crossable at bridges and fords; attacking across a ford −25% |
+| River | Impassable | Crossable at bridges (move cost 1) and fords (move cost 4); a stack attacking from a ford hex into a hex that is not a ford gets −25% |
 
 **Cities**
 
@@ -192,7 +196,7 @@ Each city has its own build list, so a few cities, such as the only griffin roos
 
 **Fog of war and map authoring**
 
-- Each unit has a vision radius, and hills extend it.
+- Each unit has a vision radius, 2 hexes by default, and a stack on hills sees 1 hex farther. Cities see 2 hexes for their owner.
 - Maps are built in Tiled, a free editor with hex support and JSON export. Ruins, temples, and build lists are object properties, so maps stay pure data.
 
 **Generated maps**
