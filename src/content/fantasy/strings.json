@@ -1,0 +1,22 @@
+{
+  "modifiers": {
+    "leadership": "Leadership",
+    "ford": "Attacking from a ford",
+    "city": "City walls",
+    "siege": "Siege engine",
+    "terrain": "Terrain",
+    "defense-bonus": "Defending archers"
+  },
+  "outcomes": {
+    "win": "Victory",
+    "withdraw": "You withdrew",
+    "destroyed": "Your stack was destroyed",
+    "defender-withdraw": "They fell back",
+    "evaded": "They slipped away"
+  },
+  "stances": {
+    "hold": "Hold: fight to the last unit.",
+    "fall-back": "Fall back: retreat if the win chance drops below {threshold}.",
+    "evade": "Evade: slip away before the fight if the attacker is stronger and no faster; otherwise fall back at 50%."
+  }
+}
