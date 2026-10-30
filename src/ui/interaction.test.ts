@@ -63,6 +63,7 @@ describe('selecting and previewing moves', () => {
     const [first, second] = game.state.stacks.s1!.unitIds;
     let ui = play(game, [{ kind: 'tap', hex: HOST }, { kind: 'toggleUnit', unitId: second! }, { kind: 'toggleUnit', unitId: first! }]);
     expect(ui.mode).toEqual({ kind: 'selected', stackId: 's1', split: [first, second] });
+    expect(play(game, [{ kind: 'clearSplit' }], ui).mode).toEqual({ kind: 'selected', stackId: 's1', split: [] });
     ui = play(game, [{ kind: 'tap', hex: at(6, 11) }, { kind: 'confirm' }], ui);
     expect(game.state.stacks.s1!.unitIds).toHaveLength(3);
     const moved = Object.values(game.state.stacks).find((s) => s.unitIds.includes(first!))!;
@@ -94,6 +95,23 @@ describe('attacking', () => {
     for (const id of game.state.stacks.s1?.unitIds ?? []) expect(game.state.units[id]!.moveLeft).toBe(0);
     ui = play(game, [{ kind: 'continue' }], ui);
     expect(['selected', 'idle']).toContain(ui.mode.kind);
+  });
+
+  it('an enemy out of reach this turn gets a route toward it, with a note', () => {
+    const game = new Game(demoGame(), fantasy);
+    // The patrol is in sight (2 hexes) but the host has only 1 movement left:
+    // the bridge (1) plus the attack step (1) is too much this turn.
+    const units = { ...game.state.units };
+    for (const id of game.state.stacks.s1!.unitIds) units[id] = { ...units[id]!, moveLeft: 1 };
+    game.state = { ...game.state, units };
+    const ui = play(game, [{ kind: 'tap', hex: HOST }, { kind: 'tap', hex: PATROL }]);
+    expect(ui.mode.kind).toBe('move');
+    expect(ui.message).toMatch(/Out of reach/);
+    // A hidden enemy is just a hex: from far away the same tap previews a plain move, with no note.
+    const far = new Game(demoGame(), fantasy);
+    let ui2 = play(far, [{ kind: 'tap', hex: HOST }, { kind: 'tap', hex: at(6, 12) }, { kind: 'confirm' }]);
+    ui2 = play(far, [{ kind: 'tap', hex: PATROL }], ui2);
+    expect(ui2.message).toBeNull();
   });
 
   it('attacks directly when already adjacent', () => {

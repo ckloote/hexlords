@@ -1,72 +1,188 @@
-// The page for milestone 3, step 1: a read-only map. Shows player 1's view of
-// the demo game; tapping one of your stacks shows where it can go this turn.
+// The playable slice: a hot-seat game on the test map. The page shows the
+// current player's view; taps and buttons go through the interaction reducer,
+// and every change to the game goes through the engine.
 
 import { Application } from 'pixi.js';
 import { fantasy } from '../content/fantasy';
+import stringsJson from '../content/fantasy/strings.json';
 import themeJson from '../content/fantasy/theme.json';
-import { hexKey } from '../engine/hex';
+import { fromOffset } from '../engine/hex';
+import { inBounds } from '../engine/map';
 import { reachable } from '../engine/movement';
-import { viewFor } from '../engine/vision';
+import type { PlayerView } from '../engine/vision';
 import { Camera } from './camera';
+import { Game } from './controller';
 import { demoGame } from './demo';
 import { hexToPixel, mapBounds, pixelToHex } from './hexLayout';
-import { MapView, type Selection } from './mapView';
+import { initialUi, type Input, type UiState } from './interaction';
+import { MapView, type Plan, type Selection } from './mapView';
+import { attackPanel, esc, idlePanel, movePanel, type PanelContext, resultPanel, stackPanel } from './panels';
+import { loadStrings } from './strings';
 import { loadTheme } from './theme';
 
 export async function startApp(root: HTMLElement, buildStamp: string): Promise<void> {
   const theme = loadTheme(themeJson, fantasy);
-  const state = demoGame();
-  const viewer = state.players[state.currentPlayer]!;
-  const view = viewFor(state, fantasy, viewer.id);
-  const faction = fantasy.factions[viewer.factionId]!;
+  const strings = loadStrings(stringsJson);
+  const game = new Game(demoGame(), fantasy);
+  let ui: UiState = initialUi;
 
   root.innerHTML = `
     <div class="game">
       <header class="topbar">
-        <span class="banner" style="--faction: ${theme.factions[viewer.factionId]!.color}"></span>
-        <span class="faction">${faction.name}</span>
-        <span class="turn">Turn ${state.turn}</span>
+        <span class="banner" data-ref="banner"></span>
+        <span class="faction" data-ref="faction"></span>
+        <span class="turn" data-ref="turn"></span>
       </header>
-      <div class="map" aria-label="Map"></div>
-      <footer class="hint"><span class="hint-text">Tap one of your stacks to see where it can move.</span><span class="build">Build ${buildStamp}</span></footer>
+      <div class="map" aria-label="Map">
+        <div class="toast" data-ref="toast" role="status" aria-live="polite"></div>
+        <div class="thumbs">
+          <button class="thumb" data-input="nextStack">Next stack<span class="badge" data-ref="ready"></span></button>
+          <button class="thumb primary" data-input="endTurn">End turn</button>
+        </div>
+        <span class="build">Build ${esc(buildStamp)}</span>
+      </div>
+      <section class="panel" data-ref="panel" aria-live="polite"></section>
+      <div class="handoff" data-ref="handoff" hidden></div>
     </div>`;
+  const ref = <T extends HTMLElement>(name: string) => root.querySelector<T>(`[data-ref="${name}"]`)!;
   const mapEl = root.querySelector<HTMLDivElement>('.map')!;
-  const hint = root.querySelector<HTMLSpanElement>('.hint-text')!;
 
   await document.fonts?.ready;
   const app = new Application();
   await app.init({ resizeTo: mapEl, background: theme.ui.background, antialias: true, autoDensity: true, resolution: window.devicePixelRatio || 1 });
-  mapEl.appendChild(app.canvas);
+  mapEl.prepend(app.canvas);
 
   const mapView = new MapView(theme);
   app.stage.addChild(mapView.world);
-  mapView.drawMap(view);
+  mapView.drawMap(game.view());
 
-  let selection: Selection | null = null;
-  const redraw = () => mapView.drawState(view, selection);
+  let toastTimer = 0;
+  const showToast = (text: string | null, sticky = false) => {
+    const el = ref('toast');
+    window.clearTimeout(toastTimer);
+    el.textContent = text ?? '';
+    el.classList.toggle('show', Boolean(text));
+    if (text && !sticky) toastTimer = window.setTimeout(() => el.classList.remove('show'), 3500);
+  };
 
-  const camera = new Camera(mapEl, mapView.world, mapBounds(view.map), (p) => {
-    const hex = pixelToHex(p);
-    const stack = Object.values(view.stacks).find((s) => hexKey(s.pos) === hexKey(hex));
-    if (stack && stack.owner === viewer.id && stack.id !== selection?.stackId) {
-      const reach = reachable(view, fantasy, stack.id, { visible: new Set(view.visible) });
+  const centerOnOwn = (view: PlayerView) => {
+    const own = Object.values(view.stacks).filter((s) => s.owner === view.viewer).map((s) => hexToPixel(s.pos));
+    if (own.length) camera.centerOn({ x: own.reduce((a, p) => a + p.x, 0) / own.length, y: own.reduce((a, p) => a + p.y, 0) / own.length });
+  };
+
+  function render(): void {
+    const view = game.view();
+    const player = view.players.find((p) => p.id === view.viewer)!;
+    const faction = fantasy.factions[player.factionId]!;
+    const look = theme.factions[player.factionId]!;
+    const banner = ref('banner');
+    banner.className = `banner ${look.shape}`;
+    banner.style.setProperty('--faction', look.color);
+    ref('faction').textContent = faction.name;
+    ref('turn').textContent = `Turn ${view.turn}`;
+    const ready = Object.values(view.stacks).filter((s) => s.owner === view.viewer && s.unitIds.every((id) => view.units[id]!.moveLeft > 0)).length;
+    ref('ready').textContent = ready ? String(ready) : '';
+
+    const mode = ui.mode;
+    let selection: Selection | null = null;
+    let plan: Plan | null = null;
+    if ((mode.kind === 'selected' || mode.kind === 'move' || mode.kind === 'attack') && view.stacks[mode.stackId]) {
+      const stack = view.stacks[mode.stackId]!;
+      const reach = reachable(view, fantasy, stack.id, { unitIds: mode.split.length ? mode.split : undefined, visible: new Set(view.visible) });
       selection = { stackId: stack.id, reach };
-      const inReach = Object.keys(reach.hexes).length - 1;
-      const attacks = Object.keys(reach.attacks).length;
-      hint.textContent = `${stack.unitIds.length} units · Move ${reach.budget} · ${inReach} hexes in reach${attacks ? ` · can attack ${attacks}` : ''}`;
-    } else if (stack && stack.owner !== viewer.id) {
-      const units = stack.unitIds.map((id) => fantasy.units[view.units[id]!.typeId]!.name).join(', ');
-      hint.textContent = `Enemy: ${units}`;
-      selection = null;
-    } else {
-      selection = null;
-      hint.textContent = 'Tap one of your stacks to see where it can move.';
+      if (mode.kind === 'move') {
+        const markers =
+          mode.steps[mode.steps.length - 1]!.turn > 0
+            ? mode.steps.flatMap((s, k) => (k === mode.steps.length - 1 || mode.steps[k + 1]!.turn !== s.turn ? [{ hex: s.hex, turn: s.turn + 1 }] : []))
+            : [];
+        plan = { path: [stack.pos, ...mode.steps.map((s) => s.hex)], markers };
+      } else if (mode.kind === 'attack') {
+        plan = { path: [stack.pos, ...mode.path], markers: [], target: view.stacks[mode.targetId]?.pos };
+      }
     }
-    redraw();
+    mapView.drawState(view, selection, plan);
+
+    const ctx: PanelContext = { view, content: fantasy, strings, theme };
+    const panel = ref('panel');
+    panel.innerHTML =
+      mode.kind === 'selected' ? stackPanel(ctx, mode)
+      : mode.kind === 'move' ? movePanel(ctx, mode)
+      : mode.kind === 'attack' ? attackPanel(ctx, mode)
+      : mode.kind === 'result' ? resultPanel(ctx, mode.report)
+      : idlePanel();
+    panel.dataset.mode = mode.kind;
+
+    const handoff = ref('handoff');
+    handoff.hidden = mode.kind !== 'handoff';
+    if (mode.kind === 'handoff') {
+      const next = view.players.find((p) => p.id === mode.playerId)!;
+      const nextLook = theme.factions[next.factionId]!;
+      const name = esc(fantasy.factions[next.factionId]!.name);
+      handoff.innerHTML = `<div class="handoff-card"><span class="banner big ${nextLook.shape}" style="--faction:${nextLook.color}"></span>
+        <h2>Pass to the ${name}</h2><p>Hand the device over. The next view shows only what the ${name} can see.</p>
+        <button class="primary" data-input="continue">Start the ${name} turn</button></div>`;
+    }
+    if (ui.message) showToast(ui.message);
+    else if (mode.kind === 'move') showToast('Tap the destination again to move', true);
+    else if (mode.kind === 'attack') showToast('Tap the enemy again to attack', true);
+    else showToast(null);
+  }
+
+  function send(input: Input): void {
+    const before = ui.mode.kind;
+    ui = game.handle(ui, input).ui;
+    if (before === 'handoff' && ui.mode.kind !== 'handoff') {
+      const view = game.view();
+      mapView.drawMap(view);
+      centerOnOwn(view);
+    }
+    render();
+  }
+
+  const camera = new Camera(mapEl, mapView.world, mapBounds(game.state.map), (p) => {
+    const hex = pixelToHex(p);
+    send(inBounds(game.state.map, hex) ? { kind: 'tap', hex } : { kind: 'cancel' });
   });
 
-  // Start centered on your own stacks at default zoom.
-  const own = Object.values(view.stacks).filter((s) => s.owner === viewer.id).map((s) => hexToPixel(s.pos));
-  camera.centerOn({ x: own.reduce((a, p) => a + p.x, 0) / own.length, y: own.reduce((a, p) => a + p.y, 0) / own.length });
-  redraw();
+  root.addEventListener('click', (e) => {
+    const target = (e.target as HTMLElement).closest<HTMLElement>('[data-action],[data-input]');
+    if (!target) return;
+    const action = target.dataset.action ?? target.dataset.input;
+    const delta = Number(target.dataset.delta ?? 0);
+    switch (action) {
+      case 'toggleUnit':
+        return send({ kind: 'toggleUnit', unitId: target.dataset.unit! });
+      case 'stance':
+        return send({ kind: 'stance', stance: target.dataset.stance as 'hold' | 'fall-back' | 'evade' });
+      case 'stanceThreshold':
+        return send({ kind: 'stanceThreshold', delta });
+      case 'withdraw':
+        return send({ kind: 'withdraw', delta });
+      case 'clearSplit':
+      case 'cancel':
+      case 'confirm':
+      case 'continue':
+      case 'nextStack':
+      case 'endTurn':
+        return send({ kind: action } as Input);
+    }
+  });
+
+  centerOnOwn(game.view());
+  render();
+
+  // ?debug exposes hex positions so automated browser checks can tap real hexes.
+  if (new URLSearchParams(window.location.search).has('debug')) {
+    const hook = {
+      screenOf(col: number, row: number) {
+        const p = hexToPixel(fromOffset(col, row));
+        const r = mapEl.getBoundingClientRect();
+        return { x: r.left + mapView.world.position.x + p.x * camera.scale, y: r.top + mapView.world.position.y + p.y * camera.scale };
+      },
+      center(col: number, row: number) {
+        camera.centerOn(hexToPixel(fromOffset(col, row)));
+      },
+    };
+    (window as unknown as { hexlords: typeof hook }).hexlords = hook;
+  }
 }

@@ -37,6 +37,7 @@ describe('oddsCard', () => {
     expect(card.title).toBe('Attack Gravelmaw');
     expect(card.subtitle).toBe('Orc Horde city · 5 defenders');
     expect(card.winChance).toBe('79%');
+    expect(card.winLabel).toBe('chance to win');
     expect(card.youKeep).toBe('1.5 of 5');
     expect(card.theyKeep).toBe('0.3 of 5');
     expect(card.yourLines).toEqual([{ label: 'Leadership', value: '+25%' }]);
@@ -85,6 +86,10 @@ describe('oddsCard', () => {
     const field = make('fall-back', ['cavalry', 'cavalry'], ['infantry', 'infantry']);
     if (field.evades) throw new Error('unexpected');
     expect(field.segments.map((x) => x.kind)).toEqual(['win', 'defender-withdraw', 'withdraw', 'destroyed']);
+    // The headline counts driving them off as a success; the bar still splits it.
+    expect(field.winLabel).toBe('chance to win or drive them off');
+    const parts = field.segments.filter((x) => x.kind === 'win' || x.kind === 'defender-withdraw').reduce((a, x) => a + x.p, 0);
+    expect(field.winChance).toBe(`${Math.round(parts * 100)}%`);
     expect(field.pursuitNote).toMatch(/break away cleanly/);
     expect(field.subtitle).toBe('Orc Horde · 2 units');
     expect(make('evade', ['infantry', 'infantry', 'infantry'], ['cavalry']).evades).toBe(true);

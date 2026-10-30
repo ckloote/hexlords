@@ -28,6 +28,8 @@ export type OddsCard =
       title: string;
       subtitle: string;
       winChance: string;
+      /** "chance to win", or "chance to win or drive them off" against a stack that may fall back. */
+      winLabel: string;
       segments: OutcomeSegment[];
       youKeep: string;
       theyKeep: string;
@@ -102,7 +104,8 @@ export function oddsCard(
     evades: false,
     title,
     subtitle,
-    winChance: percent(odds.win),
+    winChance: percent(preview.defenderThreshold !== undefined ? odds.win + odds.defenderWithdraw : odds.win),
+    winLabel: preview.defenderThreshold !== undefined ? 'chance to win or drive them off' : 'chance to win',
     segments: shown,
     youKeep: fmtKeep(odds.expectedAttackers, modifiers.attackers.length),
     theyKeep: fmtKeep(odds.expectedDefenders, modifiers.defenders.length),

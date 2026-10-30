@@ -36,6 +36,7 @@ export type Input =
   | { kind: 'cancel' }
   | { kind: 'confirm' }
   | { kind: 'toggleUnit'; unitId: string }
+  | { kind: 'clearSplit' }
   | { kind: 'stance'; stance: Stance['kind'] }
   | { kind: 'stanceThreshold'; delta: number }
   | { kind: 'withdraw'; delta: number }
@@ -201,6 +202,8 @@ export function interact(view: PlayerView, content: ContentPack, state: UiState,
       split = all.filter((id) => split.includes(id)); // keep fight-panel order stable
       return none(ui({ kind: 'selected', stackId: mode.stackId, split }));
     }
+    case 'clearSplit':
+      return none(mode.kind === 'selected' ? ui({ ...mode, split: [] }) : state);
     case 'stance': {
       if (mode.kind !== 'selected') return none(state);
       const stance: Stance =
