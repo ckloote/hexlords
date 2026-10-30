@@ -249,7 +249,7 @@ The battle math shows that combat value equals Strength × Hits. A Strength-8 un
 - Each city builds one unit at a time from its own list: 1 turn for basic units, 2–3 for elites.
 - Gold and city build slots both limit growth, so more cities means more output, not just more money.
 - A unit is paid for when it is finished, at the start of its owner's turn. If the treasury is short, or the stack in the city already holds 8 units, the finished unit waits with its progress kept. A new unit joins the stack in the city or forms a new one there, and the city starts on another of the same type. Switching to a different unit loses the progress; stopping production is free.
-- Each player starts with gold set by the scenario (50 by default). The first round has no turn-start economy or healing, so every player starts on equal terms; income, upkeep, and production begin with each player's second turn.
+- Each player starts with gold set by the scenario (50 by default). The first round runs no turn-start checks (no economy, healing, elimination, or domination), so every player starts on equal terms; they all begin with each player's second turn.
 
 **Upkeep**
 
@@ -382,7 +382,7 @@ Score is city income, a city counts only once it is secured, and a player wins b
 
 Example: a map with 4 capitals, 6 cities, and 8 villages has 180 total income, so domination needs 90. Everyone starts at 20.
 
-The domination target is rounded up. It is checked at the start of each turn, the first included, so a map must not give any player the domination share at the start. The small test map has 40 total income: each side starts with a city and a village (15), and a neutral city, Ashvale, adds 10. Both sides start with 15 and +1 gold a turn after upkeep, and it uses the default 50%: taking a village reaches exactly half, which is not yet a last stand, while taking Ashvale passes it. If the score and the army value are both tied when the last turn ends, the game is a draw.
+The domination target is rounded up. It is checked at the start of each turn from the second round on, so a map that gives a player the domination share at the start ends the game at that player's second turn. The small test map has 40 total income: each side starts with a city and a village (15), and a neutral city, Ashvale, adds 10. Both sides start with 15 and +1 gold a turn after upkeep, and it uses the default 50%: taking a village reaches exactly half, which is not yet a last stand, while taking Ashvale passes it. If the score and the army value are both tied when the last turn ends, the game is a draw.
 
 Each map sets its own turn limit. Start around 40 turns, about 40 minutes at a minute per human turn, then set it a little past the length of decisive AI-vs-AI games.
 
@@ -392,7 +392,7 @@ When a player's current income passes 50%, every player sees a warning. The AI's
 
 **Elimination and resigning**
 
-- A player who starts a turn with no cities is eliminated immediately, and their units disband. There is no exile period. (A test board with no cities at all eliminates nobody.)
+- A player who starts a turn with no cities is eliminated immediately, and their units disband. There is no exile period. Like the other turn-start checks, this begins in the second round. (A test board with no cities at all eliminates nobody.)
 - In multiplayer, a player who resigns leaves their cities neutral, garrisons included.
 
 **Victory conditions are map data**

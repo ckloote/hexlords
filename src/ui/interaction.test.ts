@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { fantasy } from '../content/fantasy';
+import stringsJson from '../content/fantasy/strings.json';
+import themeJson from '../content/fantasy/theme.json';
+import { createGame } from '../engine/engine';
 import { hexKey } from '../engine/hex';
 import { findPath } from '../engine/movement';
-import { at } from '../engine/test-fixtures';
+import { asciiMap, at } from '../engine/test-fixtures';
+import type { GameState } from '../engine/types';
+import { viewFor } from '../engine/vision';
 import { Game } from './controller';
 import { demoGame } from './demo';
 import { initialUi, type Input, interact, MOVED, type UiState } from './interaction';
+import { gameOverOverlay } from './panels';
+import { loadStrings } from './strings';
+import { loadTheme } from './theme';
 
 // Demo game: p1 (dwarves) has the host s1 at (6,9) south of the bridge; the orc
 // patrol s4 holds (6,7) north of it on Fall back 40%.
@@ -179,5 +187,38 @@ describe('turns and stances', () => {
     game.state = { ...game.state, stacks: { ...game.state.stacks, s1: { ...game.state.stacks.s1!, destination: at(0, 8) } } };
     ui = passTurn(game, passTurn(game, ui));
     expect(game.state.stacks.s1!.destination).toBeUndefined();
+  });
+});
+
+describe('hot-seat turn changes', () => {
+  /** A round-2 game where p2 holds no city, so p2 is eliminated at the start of their turn. */
+  function cityless(players: string[]): GameState {
+    const map = asciiMap(['......', '......'], [
+      { at: at(0, 0), tier: 'city', owner: 'p1' },
+      ...(players.includes('p3') ? [{ at: at(5, 1), tier: 'city' as const, owner: 'p3' }] : []),
+    ], { turnLimit: 40, domination: 1 });
+    const factions = ['dwarves', 'orc-horde', 'elves'];
+    const s = createGame({ seed: 1, map, players: players.map((id, k) => ({ id, factionId: factions[k]! })), stacks: [] }, fantasy);
+    return { ...s, turn: 2 };
+  }
+
+  it('hands the device to the player whose turn it really is when the next one is eliminated', () => {
+    const game = new Game(cityless(['p1', 'p2', 'p3']), fantasy);
+    const ui = play(game, [{ kind: 'endTurn' }]);
+    expect(ui.mode).toEqual({ kind: 'handoff', playerId: 'p3' });
+    expect(game.playerId).toBe('p3');
+    expect(game.state.players.find((p) => p.id === 'p2')!.eliminated).toBe(true);
+  });
+
+  it('skips the hand-off when the turn change ends the game, and names the winner, not "you"', () => {
+    const game = new Game(cityless(['p1', 'p2']), fantasy);
+    const ui = play(game, [{ kind: 'endTurn' }]);
+    expect(ui.mode).toEqual({ kind: 'idle' });
+    expect(game.state.winner).toEqual({ playerId: 'p1', reason: 'last-standing' });
+    // The view now belongs to the eliminated p2, yet the card still reads the same for whoever holds the device.
+    const ctx = { view: viewFor(game.state, fantasy, 'p2'), content: fantasy, strings: loadStrings(stringsJson), theme: loadTheme(themeJson, fantasy) };
+    const html = gameOverOverlay(ctx);
+    expect(html).toContain('Victory for the Dwarves');
+    expect(html).toContain('Won as the last player standing.');
   });
 });

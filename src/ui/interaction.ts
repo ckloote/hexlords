@@ -107,14 +107,6 @@ function select(stackId: string): UiState {
   return ui({ kind: 'selected', stackId, split: [] });
 }
 
-function nextPlayer(view: PlayerView): PlayerId {
-  const n = view.players.length;
-  for (let k = 1; k <= n; k++) {
-    const p = view.players[(view.currentPlayer + k) % n]!;
-    if (!p.eliminated) return p.id;
-  }
-  return view.viewer;
-}
 
 /** Moves that continue saved routes at the start of a turn; routes with no path are dropped. */
 export function continueRoutes(view: PlayerView, content: ContentPack): Command[] {
@@ -289,7 +281,8 @@ function react(view: PlayerView, content: ContentPack, state: UiState, input: In
         const list = idle.length === 1 ? `${idle[0]} has` : `${idle.slice(0, -1).join(', ')} and ${idle[idle.length - 1]} have`;
         return none({ mode, message: `${list} nothing in production. Tap End turn again to end anyway.`, endWarned: true });
       }
-      return { ui: ui({ kind: 'handoff', playerId: nextPlayer(view) }), commands: [{ type: 'EndTurn', playerId: view.viewer }] };
+      // settle() names the player whose turn it is once EndTurn has run (it may skip an eliminated one).
+      return { ui: ui({ kind: 'handoff', playerId: view.viewer }), commands: [{ type: 'EndTurn', playerId: view.viewer }] };
     }
   }
 }
@@ -297,7 +290,13 @@ function react(view: PlayerView, content: ContentPack, state: UiState, input: In
 /** The UI state after the engine ran a step's commands. */
 export function settle(step: UiState, events: GameEvent[], error: string | null, view: PlayerView): UiState {
   const mode = step.mode;
-  if (mode.kind === 'handoff' || mode.kind === 'summary') return step;
+  if (mode.kind === 'handoff') {
+    if (error) return ui({ kind: 'idle' }, error);
+    // A game that just ended shows the game-over card; nobody needs the device passed.
+    if (view.winner) return ui({ kind: 'idle' });
+    return ui({ kind: 'handoff', playerId: view.viewer });
+  }
+  if (mode.kind === 'summary') return step;
   const battle = events.find((e): e is BattleReport => e.kind === 'battle');
   // The battle result shows first; Continue then opens any capture card.
   if (battle) return ui({ kind: 'result', report: battle }, error);

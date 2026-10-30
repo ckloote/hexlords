@@ -135,6 +135,14 @@ describe('secured cities and victory', () => {
     expect(applyCommand(r.state, end('p1'), fantasy)).toEqual({ error: 'The game is over' });
   });
 
+  it('checks domination from round 2, for every player alike', () => {
+    // 25 total; at 40% both p1 (15) and p2 (10) start with enough, but nobody wins in round 1.
+    const s = game([], { map: board({ turnLimit: 40, domination: 0.4 }) });
+    const first = step(s, end('p1'));
+    expect(first.state.winner).toBeUndefined();
+    expect(step(first.state, end('p2')).state.winner).toEqual({ playerId: 'p1', reason: 'domination' });
+  });
+
   it('eliminates a player who starts a turn with no city, disbanding their units', () => {
     const s = game([
       { owner: 'p1', pos: at(6, 4), units: ['infantry'] },
@@ -145,7 +153,11 @@ describe('secured cities and victory', () => {
       { type: 'Move', playerId: 'p1', stackId: 's1', path: [at(7, 4)] },
       { type: 'ResolveCapture', playerId: 'p1', siteId: 'c1', choice: 'raze' },
     ], fantasy);
-    const r = step(t, end('p1'));
+    // Round 1 runs no checks: p2 starts turn 1 without a city and plays on.
+    const first = step(t, end('p1'));
+    expect(first.events).not.toContainEqual({ kind: 'eliminated', playerId: 'p2' });
+    expect(first.state.players[first.state.currentPlayer]!.id).toBe('p2');
+    const r = step(replay(first.state, [end('p2'), end('p3')], fantasy), end('p1'));
     expect(r.events).toContainEqual({ kind: 'eliminated', playerId: 'p2' });
     expect(r.state.players.find((p) => p.id === 'p2')!.eliminated).toBe(true);
     expect(r.state.stacks.s2).toBeUndefined();
@@ -159,7 +171,9 @@ describe('secured cities and victory', () => {
       { type: 'Move', playerId: 'p1', stackId: 's1', path: [at(7, 4)] },
       { type: 'ResolveCapture', playerId: 'p1', siteId: 'c1', choice: 'occupy' },
     ], fantasy);
-    expect(step(t, end('p1')).state.winner).toEqual({ playerId: 'p1', reason: 'last-standing' });
+    const round1 = step(t, end('p1')).state;
+    expect(round1.winner).toBeUndefined();
+    expect(step(replay(round1, [end('p2')], fantasy), end('p1')).state.winner).toEqual({ playerId: 'p1', reason: 'last-standing' });
   });
 
   it('after the last turn, the highest secured score wins, then the larger army', () => {

@@ -280,10 +280,9 @@ export function summaryOverlay(ctx: PanelContext, summary: Summary): string {
 export function gameOverOverlay(ctx: PanelContext): string {
   const w = ctx.view.winner!;
   const why = { domination: 'by domination', 'last-standing': 'as the last player standing', 'turn-limit': 'on score when the last turn ended' }[w.reason];
-  let title: string;
-  if (w.playerId === null) title = 'A draw';
-  else if (w.playerId === ctx.view.viewer) title = 'Victory';
-  else title = `Winner: the ${ctx.content.factions[ctx.view.players.find((p) => p.id === w.playerId)!.factionId]!.name}`;
+  // Hot-seat: whoever holds the device may not be the viewer, so name the winner rather than saying "you".
+  const title =
+    w.playerId === null ? 'A draw' : `Victory for the ${ctx.content.factions[ctx.view.players.find((p) => p.id === w.playerId)!.factionId]!.name}`;
   const detail = w.playerId === null ? 'Equal score and equal armies when the last turn ended.' : `Won ${why}.`;
   return `<div class="handoff-card">${w.playerId ? bannerFor(ctx, w.playerId).replace('class="banner', 'class="banner big') : ''}
     <h2>${esc(title)}</h2><p>${esc(detail)}</p><button class="primary" data-input="newGame">New game</button></div>`;

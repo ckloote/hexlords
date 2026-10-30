@@ -1,7 +1,7 @@
 // The turn cycle. At the start of each player's turn, in order: elimination,
 // income, upkeep, desertion, production, healing, securing cities, and the
-// domination check; then movement is restored. The first round skips the
-// economy and healing so every player starts on equal terms.
+// domination check; then movement is restored. The first round runs only the
+// securing and the movement restore, so every player starts on equal terms.
 
 import { runProduction } from './cities';
 import { TAGS, type ContentPack } from './content';
@@ -117,17 +117,19 @@ function clearActed(state: GameState, playerId: PlayerId): GameState {
 export function startTurn(state: GameState, content: ContentPack, events: TurnEvent[]): GameState {
   const playerId = state.players[state.currentPlayer]!.id;
   let s = state;
+  // Round 1 runs no turn-start checks, so every player starts on equal terms.
+  const checks = s.turn > 1;
   // A map without cities (a test board) eliminates nobody.
-  if (s.map.sites.length > 0 && incomeOf(s, playerId) === 0) return eliminate(s, playerId, events);
+  if (checks && s.map.sites.length > 0 && incomeOf(s, playerId) === 0) return eliminate(s, playerId, events);
   events.push({ kind: 'turn-started', playerId, turn: s.turn });
-  if (s.turn > 1) {
+  if (checks) {
     s = collect(s, content, playerId, events);
     s = runProduction(s, content, playerId, events);
     s = heal(s, content, playerId, events);
   }
   s = secure(s, playerId, events);
   s = clearActed(restoreMovement(s, content, playerId, RULES.retreatMovePenaltyPct), playerId);
-  if (totalIncome(s) > 0 && securedScore(s, playerId) >= dominationTarget(s)) {
+  if (checks && totalIncome(s) > 0 && securedScore(s, playerId) >= dominationTarget(s)) {
     s = setWinner(s, { playerId, reason: 'domination' }, events);
   }
   return s;
