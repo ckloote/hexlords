@@ -382,7 +382,7 @@ Score is city income, a city counts only once it is secured, and a player wins b
 
 Example: a map with 4 capitals, 6 cities, and 8 villages has 180 total income, so domination needs 90. Everyone starts at 20.
 
-The domination target is rounded up. It is checked at the start of each turn, the first included, so a map must not give any player the domination share at the start. The small test map (30 total income, the dwarves start with 15) therefore sets domination to 70%. If the score and the army value are both tied when the last turn ends, the game is a draw.
+The domination target is rounded up. It is checked at the start of each turn, the first included, so a map must not give any player the domination share at the start. The small test map has 40 total income: each side starts with a city and a village (15), and a neutral city, Ashvale, adds 10. Both sides start with 15 and +1 gold a turn after upkeep, and it uses the default 50%: taking a village reaches exactly half, which is not yet a last stand, while taking Ashvale passes it. If the score and the army value are both tied when the last turn ends, the game is a draw.
 
 Each map sets its own turn limit. Start around 40 turns, about 40 minutes at a minute per human turn, then set it a little past the length of decisive AI-vs-AI games.
 

@@ -13,8 +13,9 @@ import { loadStrings } from './strings';
 import { buildSummary } from './summary';
 
 // Demo game: the dwarves (p1) hold Stonebridge (site4, city) and Kettle Ford
-// (site3, village); the orcs (p2) hold Gravelmaw (site1, city); Hollow Pine
-// (site2, village) is neutral. The test map's domination share is 70%.
+// (site3, village); the orcs (p2) hold Gravelmaw (site1, city) and Hollow Pine
+// (site2, village); Ashvale (site5, city) is neutral. 40 total income, so
+// domination at the default 50% needs 20.
 const strings = loadStrings(stringsJson);
 const STONEBRIDGE = at(6, 14);
 const HOLLOW_PINE = at(12, 4);
@@ -29,12 +30,22 @@ describe('scoreboard', () => {
   it('shows gold, net income after upkeep, the turn, and secured scores', () => {
     const view = viewFor(demoGame(), fantasy, 'p1');
     const board = scoreboard(view, fantasy);
-    expect(board).toMatchObject({ gold: 50, income: 15, upkeep: 26, net: -11, turn: 1, turnLimit: 40, total: 30, target: 21, lastStand: null });
-    expect(scoreLine(board)).toBe('You 15 · Orcs 10');
-    expect(netLabel(board.net)).toBe('−11 per turn');
-    expect(leaderLine(board, view, fantasy)).toBe('You lead with 15.');
+    expect(board).toMatchObject({ gold: 50, income: 15, upkeep: 14, net: 1, turn: 1, turnLimit: 40, total: 40, target: 20, lastStand: null });
+    expect(scoreLine(board)).toBe('You 15 · Orcs 15');
+    expect(netLabel(board.net)).toBe('+1 per turn');
+    expect(netLabel(-4)).toBe('−4 per turn');
+    expect(leaderLine(board, view, fantasy)).toBe('You share the lead with 15.');
     const orcs = viewFor(demoGame(), fantasy, 'p2');
-    expect(leaderLine(scoreboard(orcs, fantasy), orcs, fantasy)).toBe('Leading: the Dwarves with 15. You are second with 10.');
+    expect(scoreboard(orcs, fantasy)).toMatchObject({ income: 15, upkeep: 14, net: 1 });
+  });
+
+  it('warns of a last stand only past half the income: a village is not enough, a city is', () => {
+    const s = demoGame();
+    const take = (siteId: string): GameState => ({ ...s, cities: { ...s.cities, [siteId]: { ...s.cities[siteId]!, owner: 'p1' } } });
+    expect(scoreboard(viewFor(take('site2'), fantasy, 'p1'), fantasy).lastStand).toBeNull(); // 20 of 40
+    expect(scoreboard(viewFor(take('site5'), fantasy, 'p1'), fantasy).lastStand).toBe('p1'); // 25 of 40
+    const orcLead = viewFor(take('site5'), fantasy, 'p2');
+    expect(leaderLine(scoreboard(orcLead, fantasy), orcLead, fantasy)).toBe('You share the lead with 15.'); // Ashvale is not secured yet
   });
 });
 
@@ -63,7 +74,8 @@ describe('city card', () => {
   it('shows other cities without their production', () => {
     const view = viewFor(demoGame(), fantasy, 'p1');
     expect(cityCard(view, fantasy, strings, 'site1')).toMatchObject({ mine: false, options: [], building: null, garrison: 'Not in sight' });
-    expect(cityCard(view, fantasy, strings, 'site2')).toMatchObject({ owner: null, holding: '' });
+    expect(cityCard(view, fantasy, strings, 'site2')).toMatchObject({ owner: 'p2', mine: false, holding: 'Secured' });
+    expect(cityCard(view, fantasy, strings, 'site5')).toMatchObject({ name: 'Ashvale', owner: null, holding: '' });
   });
 
   it('counts unit names', () => {
@@ -79,7 +91,7 @@ describe('turn summary', () => {
         kind: 'battle',
         attackerOwner: 'p2',
         defenderOwner: 'p1',
-        attackerStackId: 's6',
+        attackerStackId: 's4',
         defenderStackId: 's2',
         attackerUnitIds: ['a', 'b'],
         defenderUnitIds: ['c', 'd'],
@@ -92,7 +104,7 @@ describe('turn summary', () => {
         ],
         attackerAdvanced: false,
       },
-      { kind: 'captured', playerId: 'p2', siteId: 'site3', from: 'p1', stackId: 's7' },
+      { kind: 'captured', playerId: 'p2', siteId: 'site3', from: 'p1', stackId: 's4' },
       { kind: 'income', playerId: 'p1', income: 10, upkeep: 26, gold: 0 },
       { kind: 'unit-built', playerId: 'p1', siteId: 'site4', unitId: 'u99', unitTypeId: 'infantry', cost: 16 },
       { kind: 'deserted', playerId: 'p1', unitId: 'u5', unitTypeId: 'griffins' },
@@ -105,7 +117,7 @@ describe('turn summary', () => {
       { tone: 'danger', title: 'Units deserted', detail: '1 Griffins left: the treasury could not pay upkeep.' },
     ]);
     expect(summary.economy).toBe('Income 10 − upkeep 26 = −16 gold · treasury 50');
-    expect(summary.leader).toBe('You lead with 15. Domination needs 21 secured.');
+    expect(summary.leader).toBe('You share the lead with 15. Domination needs 20 secured.');
   });
 });
 
@@ -123,8 +135,8 @@ describe('cities and captures in play', () => {
 
   it('asks what to do with a captured city before anything else', () => {
     const s = demoGame();
-    // Put the griffins next to Hollow Pine.
-    const game = new Game({ ...s, stacks: { ...s.stacks, s3: { ...s.stacks.s3!, pos: at(11, 4) } } }, fantasy);
+    // Put the griffins next to the orcs' empty Hollow Pine.
+    const game = new Game({ ...s, stacks: { ...s.stacks, s2: { ...s.stacks.s2!, pos: at(11, 4) } } }, fantasy);
     let ui = play(game, [{ kind: 'tap', hex: at(11, 4) }, { kind: 'tap', hex: HOLLOW_PINE }, { kind: 'confirm' }]);
     expect(ui.mode).toEqual({ kind: 'capture', siteId: 'site2' });
     // Other inputs keep the capture card up.
@@ -133,7 +145,7 @@ describe('cities and captures in play', () => {
     expect(game.playerId).toBe('p1');
     ui = play(game, [{ kind: 'capture', choice: 'pillage' }], ui);
     expect(ui.message).toBe('Hollow Pine lies in ruins; you took 15 gold.');
-    expect(ui.mode).toMatchObject({ kind: 'selected', stackId: 's3' });
+    expect(ui.mode).toMatchObject({ kind: 'selected', stackId: 's2' });
     expect(game.state.gold.p1).toBe(65);
     expect(game.state.cities.site2!.razed).toBe(true);
   });

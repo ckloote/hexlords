@@ -52,11 +52,9 @@ describe('the test map', () => {
   });
 
   it('plays a scripted turn sequence that replays identically and survives JSON', () => {
-    // The orcs also hold Hollow Pine here, so losing Gravelmaw does not eliminate them.
-    const begin = () => {
-      const s = createGame(setup, fantasy);
-      return { ...s, cities: { ...s.cities, site2: { ...s.cities.site2!, owner: 'p2', heldSince: 0, secured: true } } };
-    };
+    // The orcs also hold Hollow Pine, so losing Gravelmaw does not eliminate them.
+    const begin = () => createGame(setup, fantasy);
+    expect(begin().cities.site2).toMatchObject({ owner: 'p2', secured: true });
     const start = begin();
     const route = findPath(start, fantasy, 's3', at(6, 7))!;
     expect(route.some((p) => p.hex.q === at(6, 8).q && p.hex.r === at(6, 8).r)).toBe(true); // over the bridge

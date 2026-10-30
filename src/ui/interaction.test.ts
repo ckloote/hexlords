@@ -8,7 +8,7 @@ import { demoGame } from './demo';
 import { initialUi, type Input, interact, MOVED, type UiState } from './interaction';
 
 // Demo game: p1 (dwarves) has the host s1 at (6,9) south of the bridge; the orc
-// patrol s6 holds (6,7) north of it on Fall back 40%.
+// patrol s4 holds (6,7) north of it on Fall back 40%.
 const HOST = at(6, 9);
 const PATROL = at(6, 7);
 
@@ -84,21 +84,21 @@ describe('attacking', () => {
     const game = new Game(demoGame(), fantasy);
     const view = game.view();
     let ui = play(game, [{ kind: 'tap', hex: HOST }, { kind: 'tap', hex: PATROL }]);
-    expect(ui.mode).toMatchObject({ kind: 'attack', targetId: 's6', withdrawBelow: 0.3 });
+    expect(ui.mode).toMatchObject({ kind: 'attack', targetId: 's4', withdrawBelow: 0.3 });
     ui = play(game, [{ kind: 'withdraw', delta: 1 }, { kind: 'withdraw', delta: 1 }], ui);
     expect(ui.mode).toMatchObject({ withdrawBelow: 0.4 });
     for (let k = 0; k < 30; k++) ui = play(game, [{ kind: 'withdraw', delta: -1 }], ui);
     expect(ui.mode).toMatchObject({ withdrawBelow: 0 });
     const step = interact(view, fantasy, { mode: { ...ui.mode, withdrawBelow: 0.3 } as UiState['mode'], message: null }, { kind: 'confirm' });
     expect(step.commands.map((c) => c.type)).toEqual(['Move', 'Attack']);
-    expect(step.commands[1]).toMatchObject({ stackId: MOVED, targetStackId: 's6', withdrawBelow: 0.3 });
+    expect(step.commands[1]).toMatchObject({ stackId: MOVED, targetStackId: 's4', withdrawBelow: 0.3 });
   });
 
   it('runs the battle and shows the result', () => {
     const game = new Game(demoGame(), fantasy);
     let ui = play(game, [{ kind: 'tap', hex: HOST }, { kind: 'tap', hex: PATROL }, { kind: 'confirm' }]);
     expect(ui.mode.kind).toBe('result');
-    expect(ui.mode.kind === 'result' && ui.mode.report.defenderStackId).toBe('s6');
+    expect(ui.mode.kind === 'result' && ui.mode.report.defenderStackId).toBe('s4');
     for (const id of game.state.stacks.s1?.unitIds ?? []) expect(game.state.units[id]!.moveLeft).toBe(0);
     ui = play(game, [{ kind: 'continue' }], ui);
     expect(['selected', 'idle']).toContain(ui.mode.kind);
@@ -162,8 +162,8 @@ describe('turns and stances', () => {
     ui = play(game, [{ kind: 'continue' }], ui);
     expect(ui.mode.kind).toBe('idle');
     ui = play(game, [{ kind: 'tap', hex: PATROL }], ui);
-    expect(ui.mode).toMatchObject({ kind: 'selected', stackId: 's6' });
-    expect(Object.keys(game.view().stacks)).not.toContain('s3'); // dwarf griffins far away stay hidden
+    expect(ui.mode).toMatchObject({ kind: 'selected', stackId: 's4' });
+    expect(Object.keys(game.view().stacks)).not.toContain('s2'); // dwarf griffins far away stay hidden
   });
 
   it('continues saved routes when your turn starts, and drops routes with no path', () => {
