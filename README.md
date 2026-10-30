@@ -4,7 +4,7 @@ A turn-based fantasy strategy game in the spirit of Warlords (1990): capture cit
 
 **Play:** https://ckloote.github.io/hexlords/
 
-**Status:** milestone 3 in progress. The site now shows the test map: pan, zoom, and tap one of your stacks to see its reach and the enemy zone of control. Moving, the odds card, and attacking come next.
+**Status:** milestone 3 done: a playable hot-seat slice on the test map. Select a stack, two-tap to move, open the odds card and attack, then pass the device. Next up is milestone 4, cities and economy.
 
 - Design: [docs/DESIGN.md](docs/DESIGN.md)
 - UI mockups: [docs/mockups/](docs/mockups/)
