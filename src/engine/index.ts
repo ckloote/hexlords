@@ -2,6 +2,7 @@
 export * from './battle';
 export * from './combat';
 export * from './content';
+export * from './economy';
 export * from './engine';
 export * from './fight';
 export * from './hex';
