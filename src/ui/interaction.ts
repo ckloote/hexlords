@@ -3,6 +3,7 @@
 // player's view, like the AI. The controller runs the commands, then settle()
 // turns their results into the next UI state.
 
+import { canBuild } from '../engine/cities';
 import type { ContentPack } from '../engine/content';
 import { type Hex, parseHexKey, sameHex } from '../engine/hex';
 import { siteAt, siteById } from '../engine/map';
@@ -181,12 +182,13 @@ function confirm(view: PlayerView, state: UiState): Step {
   return { ui: state, commands: [] };
 }
 
-/** Owned cities with something to build and nothing in production. */
-export function idleCities(view: PlayerView): string[] {
+/** Owned cities with nothing in production but something this player's faction can build there. */
+export function idleCities(view: PlayerView, content: ContentPack): string[] {
+  const factionId = view.players.find((p) => p.id === view.viewer)!.factionId;
   return view.map.sites
     .filter((s) => {
       const c = view.cities[s.id]!;
-      return c.owner === view.viewer && !c.razed && !c.production && s.builds.length > 0;
+      return c.owner === view.viewer && !c.razed && !c.production && s.builds.some((id) => canBuild(content, factionId, id));
     })
     .map((s) => s.name);
 }
@@ -277,7 +279,7 @@ function react(view: PlayerView, content: ContentPack, state: UiState, input: In
       if (pending.length) {
         return none(ui({ kind: 'capture', siteId: pending[0]!.siteId }, 'Decide what to do with the cities you took before ending the turn.'));
       }
-      const idle = idleCities(view);
+      const idle = idleCities(view, content);
       if (idle.length && !state.endWarned) {
         const list = idle.length === 1 ? `${idle[0]} has` : `${idle.slice(0, -1).join(', ')} and ${idle[idle.length - 1]} have`;
         return none({ mode, message: `${list} nothing in production. Tap End turn again to end anyway.`, endWarned: true });

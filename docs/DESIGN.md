@@ -248,7 +248,7 @@ The battle math shows that combat value equals Strength × Hits. A Strength-8 un
 - Income comes from cities by tier (see Cities): 5, 10, or 20 gold per turn.
 - Each city builds one unit at a time from its own list: 1 turn for basic units, 2–3 for elites.
 - Gold and city build slots both limit growth, so more cities means more output, not just more money.
-- A unit is paid for when it is finished, at the start of its owner's turn. If the treasury is short, or the stack in the city already holds 8 units, the finished unit waits with its progress kept. A new unit joins the stack in the city or forms a new one there, and the city starts on another of the same type. Switching to a different unit loses the progress; stopping production is free.
+- A unit is paid for when it is finished, at the start of its owner's turn. If the treasury is short, or the stack in the city already holds 8 units, the finished unit waits with its progress kept. A new unit joins the stack in the city or forms a new one there, and the city starts on another of the same type. Switching to a different unit, or stopping production, loses the progress; neither costs gold, since units are paid for only when finished.
 - Each player starts with gold set by the scenario (50 by default). The first round runs no turn-start checks (no economy, healing, elimination, or domination), so every player starts on equal terms; they all begin with each player's second turn.
 
 **Upkeep**

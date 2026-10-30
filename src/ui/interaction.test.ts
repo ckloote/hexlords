@@ -10,7 +10,7 @@ import type { GameState } from '../engine/types';
 import { viewFor } from '../engine/vision';
 import { Game } from './controller';
 import { demoGame } from './demo';
-import { initialUi, type Input, interact, MOVED, type UiState } from './interaction';
+import { idleCities, initialUi, type Input, interact, MOVED, type UiState } from './interaction';
 import { gameOverOverlay } from './panels';
 import { loadStrings } from './strings';
 import { loadTheme } from './theme';
@@ -220,5 +220,16 @@ describe('hot-seat turn changes', () => {
     const html = gameOverOverlay(ctx);
     expect(html).toContain('Victory for the Dwarves');
     expect(html).toContain('Won as the last player standing.');
+  });
+
+  it('does not warn about an idle city that has nothing this faction may build', () => {
+    // The dwarves hold a city whose list names only the orcs' Trolls.
+    const map = asciiMap(['....'], [
+      { at: at(0, 0), tier: 'city', owner: 'p1', builds: ['trolls'], name: 'Trollgate' },
+      { at: at(3, 0), tier: 'city', owner: 'p1', builds: ['militia'], name: 'Fieldholm' },
+      { at: at(2, 0), tier: 'city', owner: 'p2', builds: ['militia'] },
+    ]);
+    const g = createGame({ seed: 1, map, players: [{ id: 'p1', factionId: 'dwarves' }, { id: 'p2', factionId: 'orc-horde' }], stacks: [] }, fantasy);
+    expect(idleCities(viewFor(g, fantasy, 'p1'), fantasy)).toEqual(['Fieldholm']);
   });
 });

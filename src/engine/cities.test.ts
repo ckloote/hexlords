@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fantasy } from '../content/fantasy';
-import { canBuild, captureAt, productionBlocker } from './cities';
+import { canBuild, captureAt, forecastProduction, productionBlocker } from './cities';
+import { treasuryAfterUpkeep } from './economy';
 import { applyCommand, createGame, type GameSetup, replay } from './engine';
 import { asciiMap, at } from './test-fixtures';
 import type { Command, CommandResult, GameState } from './types';
@@ -74,6 +75,9 @@ describe('SetProduction', () => {
     const started = { ...s, cities: { ...s.cities, c0: { ...s.cities.c0!, production: { unitTypeId: 'cavalry', progress: 1 } } } };
     expect(ok(applyCommand(started, build('c0', 'cavalry'), fantasy)).cities.c0!.production).toEqual({ unitTypeId: 'cavalry', progress: 1 });
     expect(ok(applyCommand(started, build('c0', 'militia'), fantasy)).cities.c0!.production).toEqual({ unitTypeId: 'militia', progress: 0 });
+    // Stopping loses it too: picking the same unit again starts over.
+    const stopped = ok(applyCommand(started, build('c0', null), fantasy));
+    expect(ok(applyCommand(stopped, build('c0', 'cavalry'), fantasy)).cities.c0!.production).toEqual({ unitTypeId: 'cavalry', progress: 0 });
   });
 });
 
@@ -89,6 +93,51 @@ describe('productionBlocker', () => {
     expect(productionBlocker(s, at(3, 2), 'p1', 16, 15)).toBe('gold');
     expect(productionBlocker(s, at(3, 2), 'p1', 16, 16)).toBeNull();
     expect(productionBlocker(s, at(7, 4), 'p2', 8, 8)).toBeNull(); // joins its own stack
+  });
+});
+
+describe('forecastProduction', () => {
+  it('predicts exactly what the next turn start builds, pays, and holds back', () => {
+    // Three dwarf cities in map order: c0 finishes Infantry (16), c1 finishes Archers (15), c2 is halfway on Cavalry.
+    const map = asciiMap(
+      ['......', '......'],
+      [
+        { at: at(0, 0), tier: 'city', owner: 'p1', builds: ['infantry'] },
+        { at: at(2, 0), tier: 'village', owner: 'p1', builds: ['archers'] },
+        { at: at(4, 0), tier: 'city', owner: 'p1', builds: ['cavalry'] },
+        { at: at(5, 1), tier: 'city', owner: 'p2', builds: ['militia'] },
+      ],
+      { turnLimit: 40, domination: 1 },
+    );
+    const g = createGame({ seed: 1, map, players: [{ id: 'p1', factionId: 'dwarves' }, { id: 'p2', factionId: 'orc-horde' }], stacks: [], startingGold: 0 }, fantasy);
+    const s: GameState = {
+      ...g,
+      turn: 2,
+      currentPlayer: 1,
+      gold: { p1: 1, p2: 0 },
+      cities: {
+        ...g.cities,
+        c0: { ...g.cities.c0!, production: { unitTypeId: 'infantry', progress: 0 } },
+        c1: { ...g.cities.c1!, production: { unitTypeId: 'archers', progress: 0 } },
+        c2: { ...g.cities.c2!, production: { unitTypeId: 'cavalry', progress: 0 } },
+      },
+    };
+    // 1 + 25 income: Infantry is paid (10 left), Archers wait for gold, Cavalry is one turn in.
+    const gold = treasuryAfterUpkeep(s, fantasy, 'p1', 1).gold;
+    expect(gold).toBe(26);
+    const forecast = forecastProduction(s, fantasy, 'p1', gold);
+    expect(forecast).toEqual([
+      { siteId: 'c0', unitTypeId: 'infantry', progress: 1, finishes: true, blocker: null, goldBefore: 26 },
+      { siteId: 'c1', unitTypeId: 'archers', progress: 1, finishes: true, blocker: 'gold', goldBefore: 10 },
+      { siteId: 'c2', unitTypeId: 'cavalry', progress: 1, finishes: false, blocker: null, goldBefore: 10 },
+    ]);
+    // The real turn start does the same.
+    const r = applyCommand(s, end('p2'), fantasy);
+    if ('error' in r) throw new Error(r.error);
+    expect(r.events.filter((e) => e.kind === 'unit-built').map((e) => e.kind === 'unit-built' && e.siteId)).toEqual(['c0']);
+    expect(r.events).toContainEqual({ kind: 'production-waiting', playerId: 'p1', siteId: 'c1', unitTypeId: 'archers', reason: 'gold' });
+    expect(r.state.gold.p1).toBe(10);
+    expect(r.state.cities.c2!.production).toEqual({ unitTypeId: 'cavalry', progress: 1 });
   });
 });
 

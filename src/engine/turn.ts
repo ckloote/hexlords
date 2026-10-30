@@ -5,7 +5,7 @@
 
 import { runProduction } from './cities';
 import { TAGS, type ContentPack } from './content';
-import { armyValue, chooseDeserter, dominationTarget, incomeOf, securedScore, totalIncome, upkeepOf } from './economy';
+import { armyValue, chooseDeserter, dominationTarget, incomeOf, securedScore, totalIncome, treasuryAfterUpkeep, upkeepOf } from './economy';
 import { cityAt } from './map';
 import { restoreMovement } from './move';
 import { RULES } from './rules';
@@ -38,11 +38,10 @@ function eliminate(state: GameState, playerId: PlayerId, events: TurnEvent[]): G
 function collect(state: GameState, content: ContentPack, playerId: PlayerId, events: TurnEvent[]): GameState {
   const income = incomeOf(state, playerId);
   const upkeep = upkeepOf(state, content, playerId);
-  let gold = (state.gold[playerId] ?? 0) + income - upkeep;
+  const { gold, short } = treasuryAfterUpkeep(state, content, playerId, state.gold[playerId] ?? 0);
   let s = state;
   // Short of gold: production waits (it checks the treasury), and the costliest unit deserts.
-  if (gold < 0) {
-    gold = 0;
+  if (short) {
     const deserter = chooseDeserter(s, content, playerId);
     if (deserter) {
       const typeId = s.units[deserter]!.typeId;

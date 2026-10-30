@@ -54,6 +54,15 @@ export function armyValue(world: World, content: ContentPack, playerId: PlayerId
   return total;
 }
 
+/**
+ * The treasury after the turn start's income and upkeep, never below 0, and
+ * whether upkeep could not be paid in full (then a unit deserts).
+ */
+export function treasuryAfterUpkeep(world: World, content: ContentPack, playerId: PlayerId, gold: number): { gold: number; short: boolean } {
+  const after = gold + incomeOf(world, playerId) - upkeepOf(world, content, playerId);
+  return { gold: Math.max(0, after), short: after < 0 };
+}
+
 /** Gold from pillaging a city of `tier`. */
 export function pillageGold(tier: CityTier): number {
   return RULES.pillageTurns * cityIncome(tier);

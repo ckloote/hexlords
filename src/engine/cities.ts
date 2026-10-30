@@ -114,11 +114,55 @@ export function productionBlocker(
   return gold < cost ? 'gold' : null;
 }
 
+/** What one of a player's cities does at their next turn start. */
+export interface ProductionForecast {
+  siteId: string;
+  /** What it is building, or null. */
+  unitTypeId: string | null;
+  /** Progress after the turn start's work. */
+  progress: number;
+  /** The unit is finished then (built now or waiting). */
+  finishes: boolean;
+  /** Why a finished unit waits; null when it is built (or nothing finishes). */
+  blocker: 'full' | 'gold' | null;
+  /** Treasury when production reaches this city: cities earlier in map order pay first. */
+  goldBefore: number;
+}
+
 /**
- * Advances production in `playerId`'s cities by one turn. A finished unit is
- * paid for now; if the treasury is short or the city's hex holds a full
- * stack, it waits, keeping its progress. New units join the stack in the
- * city or form a new one, at full health and movement.
+ * What production does for `playerId` at their next turn start, city by city
+ * in map order, from `gold` (the treasury after income and upkeep). One entry
+ * per standing city they hold. runProduction applies exactly this, and the UI
+ * and the AI read it to predict the turn.
+ */
+export function forecastProduction(world: World, content: ContentPack, playerId: PlayerId, gold: number): ProductionForecast[] {
+  const out: ProductionForecast[] = [];
+  let left = gold;
+  for (const site of world.map.sites) {
+    const city = world.cities[site.id]!;
+    if (city.owner !== playerId || city.razed) continue;
+    if (!city.production) {
+      out.push({ siteId: site.id, unitTypeId: null, progress: 0, finishes: false, blocker: null, goldBefore: left });
+      continue;
+    }
+    const type = content.units[city.production.unitTypeId]!;
+    const buildTurns = type.buildTurns ?? 1;
+    const cost = type.cost ?? 0;
+    const progress = Math.min(city.production.progress + 1, buildTurns);
+    const finishes = progress >= buildTurns;
+    // Each city spawns only on its own hex, so earlier cities' new units never block a later one.
+    const blocker = finishes ? productionBlocker(world, site.pos, playerId, cost, left) : null;
+    out.push({ siteId: site.id, unitTypeId: type.id, progress, finishes, blocker, goldBefore: left });
+    if (finishes && !blocker) left -= cost;
+  }
+  return out;
+}
+
+/**
+ * Advances production in `playerId`'s cities by one turn, as forecastProduction
+ * predicts. A finished unit is paid for now; if the treasury is short or the
+ * city's hex holds a full stack, it waits, keeping its progress. New units join
+ * the stack in the city or form a new one, at full health and movement.
  */
 export function runProduction(state: GameState, content: ContentPack, playerId: PlayerId, events: TurnEvent[]): GameState {
   const cities = { ...state.cities };
@@ -126,21 +170,19 @@ export function runProduction(state: GameState, content: ContentPack, playerId: 
   const stacks = { ...state.stacks };
   let gold = state.gold[playerId] ?? 0;
   let { nextId, nextUnitId } = state;
-  for (const site of state.map.sites) {
-    const city = cities[site.id]!;
-    if (city.owner !== playerId || city.razed || !city.production) continue;
-    const type = content.units[city.production.unitTypeId]!;
-    const buildTurns = type.buildTurns ?? 1;
-    const cost = type.cost ?? 0;
-    const progress = Math.min(city.production.progress + 1, buildTurns);
-    cities[site.id] = { ...city, production: { ...city.production, progress } };
-    if (progress < buildTurns) continue;
-    const blocker = productionBlocker({ stacks }, site.pos, playerId, cost, gold);
-    if (blocker) {
-      events.push({ kind: 'production-waiting', playerId, siteId: site.id, unitTypeId: type.id, reason: blocker });
+  for (const f of forecastProduction(state, content, playerId, gold)) {
+    if (!f.unitTypeId) continue;
+    const city = cities[f.siteId]!;
+    cities[f.siteId] = { ...city, production: { unitTypeId: f.unitTypeId, progress: f.progress } };
+    if (!f.finishes) continue;
+    if (f.blocker) {
+      events.push({ kind: 'production-waiting', playerId, siteId: f.siteId, unitTypeId: f.unitTypeId, reason: f.blocker });
       continue;
     }
-    const here = Object.values(stacks).find((s) => sameHex(s.pos, site.pos));
+    const type = content.units[f.unitTypeId]!;
+    const cost = type.cost ?? 0;
+    const pos = siteById(state.map, f.siteId)!.pos;
+    const here = Object.values(stacks).find((s) => sameHex(s.pos, pos));
     gold -= cost;
     const unit: Unit = { id: `u${nextUnitId++}`, typeId: type.id, hits: type.hits, moveLeft: type.move };
     units[unit.id] = unit;
@@ -148,11 +190,11 @@ export function runProduction(state: GameState, content: ContentPack, playerId: 
       stacks[here.id] = { ...here, unitIds: [...here.unitIds, unit.id] };
     } else {
       const id = `s${nextId++}`;
-      stacks[id] = { id, owner: playerId, pos: { ...site.pos }, unitIds: [unit.id], stance: { kind: 'hold' } };
+      stacks[id] = { id, owner: playerId, pos: { ...pos }, unitIds: [unit.id], stance: { kind: 'hold' } };
     }
     // The city starts on the next one of the same type.
-    cities[site.id] = { ...city, production: { unitTypeId: type.id, progress: 0 } };
-    events.push({ kind: 'unit-built', playerId, siteId: site.id, unitId: unit.id, unitTypeId: type.id, cost });
+    cities[f.siteId] = { ...city, production: { unitTypeId: type.id, progress: 0 } };
+    events.push({ kind: 'unit-built', playerId, siteId: f.siteId, unitId: unit.id, unitTypeId: type.id, cost });
   }
   return { ...state, cities, units, stacks, nextId, nextUnitId, gold: { ...state.gold, [playerId]: gold } };
 }
