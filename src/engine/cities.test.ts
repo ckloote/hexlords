@@ -137,7 +137,7 @@ describe('capture', () => {
     const r = applyCommand(s, intoVillage, fantasy);
     if ('error' in r) throw new Error(r.error);
     expect(r.events).toContainEqual({ kind: 'captured', playerId: 'p1', siteId: 'c2', from: null, stackId: 's1' });
-    expect(r.state.cities.c2).toMatchObject({ owner: 'p1', secured: false, heldSince: null });
+    expect(r.state.cities.c2).toMatchObject({ owner: 'p1', secured: false, held: false });
     expect(r.state.pendingCaptures).toEqual([{ siteId: 'c2', from: null }]);
     expect(applyCommand(r.state, end('p1'), fantasy)).toEqual({ error: 'Choose what to do with the captured cities first' });
     expect(applyCommand(r.state, resolve('c0', 'occupy'), fantasy)).toMatchObject({ error: expect.any(String) });
@@ -188,7 +188,7 @@ describe('capture', () => {
 
   it('a stack that falls back into an empty city occupies it without a choice', () => {
     const moved = { ...s, stacks: { ...s.stacks, s3: { ...s.stacks.s3!, pos: at(7, 4) } }, cities: { ...s.cities, c1: { ...s.cities.c1!, owner: 'p1' } } };
-    const r = captureAt(moved, 's3', at(7, 4), false);
+    const r = captureAt(moved, 's3', false);
     expect(r.state.cities.c1).toMatchObject({ owner: 'p2', secured: false });
     expect(r.state.pendingCaptures).toEqual([]);
     expect(r.events).toEqual([{ kind: 'captured', playerId: 'p2', siteId: 'c1', from: 'p1', stackId: 's3' }]);
@@ -198,7 +198,7 @@ describe('capture', () => {
     // p1 takes the village, then walks out of it; a p2 stack falls back into the empty village.
     const taken = replay(s, [intoVillage, { type: 'Move', playerId: 'p1', stackId: 's1', path: [at(3, 3)] }], fantasy);
     expect(taken.pendingCaptures).toEqual([{ siteId: 'c2', from: null }]);
-    const fellBack = captureAt({ ...taken, stacks: { ...taken.stacks, s3: { ...taken.stacks.s3!, pos: at(3, 2) } } }, 's3', at(3, 2), false).state;
+    const fellBack = captureAt({ ...taken, stacks: { ...taken.stacks, s3: { ...taken.stacks.s3!, pos: at(3, 2) } } }, 's3', false).state;
     expect(fellBack.cities.c2!.owner).toBe('p2');
     expect(fellBack.pendingCaptures).toEqual([]);
     expect(applyCommand(fellBack, resolve('c2', 'pillage'), fantasy)).toEqual({ error: 'There is no capture to resolve there' });
@@ -210,7 +210,7 @@ describe('capture', () => {
 
   it('a city taken twice in one turn is queued once', () => {
     const first = replay(s, [intoVillage, { type: 'Move', playerId: 'p1', stackId: 's1', path: [at(3, 3)] }], fantasy);
-    const lost = captureAt({ ...first, stacks: { ...first.stacks, s3: { ...first.stacks.s3!, pos: at(3, 2) } } }, 's3', at(3, 2), false).state;
+    const lost = captureAt({ ...first, stacks: { ...first.stacks, s3: { ...first.stacks.s3!, pos: at(3, 2) } } }, 's3', false).state;
     // p1 takes it back by advancing in again (the p2 stack moved off for the test).
     const cleared: GameState = { ...lost, stacks: { ...lost.stacks, s3: { ...lost.stacks.s3!, pos: at(7, 2) } } };
     const again = ok(applyCommand(cleared, { type: 'Move', playerId: 'p1', stackId: 's1', path: [at(3, 2)] }, fantasy));

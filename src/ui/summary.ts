@@ -9,7 +9,7 @@ import type { BattleReport, GameEvent, PlayerId, TurnEvent } from '../engine/typ
 import type { PlayerView } from '../engine/vision';
 import { countNames } from './cityCard';
 import { leaderLine, type Scoreboard, scoreboard } from './scoreboard';
-import { signed, type Strings } from './strings';
+import { factionName, signed, type Strings } from './strings';
 
 export interface SummaryItem {
   tone: 'good' | 'danger' | 'neutral';
@@ -67,10 +67,7 @@ export function battleLosses(report: BattleReport): { attacker: number; defender
 export function buildSummary(view: PlayerView, content: ContentPack, strings: Strings, events: readonly GameEvent[]): Summary {
   const me = view.viewer;
   const board = scoreboard(view, content);
-  const factionName = (playerId: string | null) => {
-    const p = view.players.find((x) => x.id === playerId);
-    return p ? content.factions[p.factionId]!.name : 'Someone';
-  };
+  const nameOf = (playerId: PlayerId | null) => factionName(view, content, playerId);
   const siteName = (id: string) => view.map.sites.find((s) => s.id === id)?.name ?? id;
   const items: SummaryItem[] = [];
   const of = <K extends TurnEvent['kind']>(kind: K) => events.filter((e): e is Of<K> => e.kind === kind);
@@ -86,7 +83,7 @@ export function buildSummary(view: PlayerView, content: ContentPack, strings: St
       : 'Your stack held.';
     const tally = e.outcome === 'evaded' ? '' : ` You lost ${lost.defender}; they lost ${lost.attacker}.`;
     const good = e.outcome === 'withdraw' || e.outcome === 'destroyed' || e.outcome === 'evaded';
-    items.push({ tone: good ? 'good' : 'danger', title: `The ${factionName(e.attackerOwner)} attacked you`, detail: `${result}${tally}` });
+    items.push({ tone: good ? 'good' : 'danger', title: `The ${nameOf(e.attackerOwner)} attacked you`, detail: `${result}${tally}` });
   }
 
   const resolved = of('capture-resolved');
@@ -100,7 +97,7 @@ export function buildSummary(view: PlayerView, content: ContentPack, strings: St
         : fate === 'pillage' ? (city.razed ? 'They pillaged it to the ground.' : `They pillaged it; it is now a ${strings.tiers[city.tier].toLowerCase()}.`)
         : city.razed ? 'City lost.'
         : `${strings.tiers[city.tier]} lost · income −${cityIncome(city.tier)} a turn`;
-      items.push({ tone: 'danger', title: `The ${factionName(e.playerId)} took ${siteName(e.siteId)}`, detail });
+      items.push({ tone: 'danger', title: `The ${nameOf(e.playerId)} took ${siteName(e.siteId)}`, detail });
     } else if (e.playerId === me) {
       items.push({ tone: 'good', title: `You took ${siteName(e.siteId)}`, detail: 'Your stack fell back into the empty city and holds it.' });
     }
@@ -131,7 +128,7 @@ export function buildSummary(view: PlayerView, content: ContentPack, strings: St
   // An eliminated player gets no further turn, so this only ever reports other players.
   for (const e of of('eliminated')) {
     if (e.playerId === me) continue;
-    items.push({ tone: 'neutral', title: `${factionName(e.playerId)} eliminated`, detail: 'They hold no city, and their army has disbanded.' });
+    items.push({ tone: 'neutral', title: `${nameOf(e.playerId)} eliminated`, detail: 'They hold no city, and their army has disbanded.' });
   }
 
   const income = of('income').find((e) => e.playerId === me);
@@ -144,6 +141,6 @@ export function buildSummary(view: PlayerView, content: ContentPack, strings: St
   const lastStand =
     board.lastStand === null ? null
     : board.lastStand === me ? 'You hold more than half of all income. Everyone will come for you: hold out until it is secured.'
-    : `Last stand: over half of all income belongs to the ${factionName(board.lastStand)}. Stop them before it is secured.`;
+    : `Last stand: over half of all income belongs to the ${nameOf(board.lastStand)}. Stop them before it is secured.`;
   return { turn: view.turn, board, economy, items, leader, lastStand };
 }

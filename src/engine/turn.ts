@@ -90,8 +90,9 @@ function secure(state: GameState, playerId: PlayerId, events: TurnEvent[]): Game
   const cities = { ...state.cities };
   for (const [id, c] of Object.entries(cities)) {
     if (c.owner !== playerId || c.razed) continue;
-    if (c.heldSince === null) cities[id] = { ...c, heldSince: state.turn };
-    else if (!c.secured && c.heldSince < state.turn) {
+    // The first owner turn start after a capture begins the hold; the next one completes the round.
+    if (!c.held) cities[id] = { ...c, held: true };
+    else if (!c.secured) {
       cities[id] = { ...c, secured: true };
       events.push({ kind: 'secured', playerId, siteId: id });
     }

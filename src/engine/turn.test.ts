@@ -110,7 +110,7 @@ describe('healing', () => {
 describe('secured cities and victory', () => {
   it('secures a captured city after a full round of holding it', () => {
     const s = game([{ owner: 'p1', pos: at(6, 4), units: ['infantry'] }, { owner: 'p2', pos: at(3, 2), units: ['militia'] }]);
-    const p2: GameState = { ...s, cities: { ...s.cities, c3: { owner: 'p2', tier: 'village', razed: false, production: null, heldSince: 0, secured: true } } };
+    const p2: GameState = { ...s, cities: { ...s.cities, c3: { owner: 'p2', tier: 'village', razed: false, production: null, held: true, secured: true } } };
     p2.map = { ...p2.map, sites: [...p2.map.sites, { id: 'c3', kind: 'city', name: 'Spare', pos: at(4, 4), tier: 'village', startOwner: 'p2', builds: [] }] };
     let t = replay(p2, [
       { type: 'Move', playerId: 'p1', stackId: 's1', path: [at(7, 4)] },
@@ -119,7 +119,7 @@ describe('secured cities and victory', () => {
       end('p2'),
     ], fantasy);
     expect(t.turn).toBe(2);
-    expect(t.cities.c1).toMatchObject({ owner: 'p1', heldSince: 2, secured: false });
+    expect(t.cities.c1).toMatchObject({ owner: 'p1', held: true, secured: false });
     const r = step(step(t, end('p1')).state, end('p2'));
     expect(r.events).toContainEqual({ kind: 'secured', playerId: 'p1', siteId: 'c1' });
     t = r.state;

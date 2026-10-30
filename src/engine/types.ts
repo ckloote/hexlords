@@ -57,8 +57,8 @@ export interface CityState {
   tier: CityTier;
   razed: boolean;
   production: Production | null;
-  /** Turn at whose start the current owner first held it; null right after a capture. */
-  heldSince: number | null;
+  /** The current owner has held it at the start of one of their turns; false right after a capture. */
+  held: boolean;
   /** Held for a full round (start of one owner turn to the next); only secured cities score. */
   secured: boolean;
 }

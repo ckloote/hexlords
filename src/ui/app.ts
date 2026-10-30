@@ -32,7 +32,7 @@ import {
   topBar,
 } from './panels';
 import { scoreboard } from './scoreboard';
-import { loadStrings } from './strings';
+import { factionName, loadStrings } from './strings';
 import { buildSummary } from './summary';
 import { loadTheme } from './theme';
 
@@ -136,7 +136,7 @@ export async function startApp(root: HTMLElement, buildStamp: string): Promise<v
     if (mode.kind === 'handoff') {
       const next = view.players.find((p) => p.id === mode.playerId)!;
       const nextLook = theme.factions[next.factionId]!;
-      const name = esc(fantasy.factions[next.factionId]!.name);
+      const name = esc(factionName(view, fantasy, next.id));
       handoff.innerHTML = `<div class="handoff-card"><span class="banner big ${nextLook.shape}" style="--faction:${nextLook.color}"></span>
         <h2>Pass to the ${name}</h2><p>Hand the device over. The next view shows only what the ${name} can see.</p>
         <button class="primary" data-input="continue">Start the ${name} turn</button></div>`;

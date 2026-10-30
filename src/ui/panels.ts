@@ -16,7 +16,7 @@ import type { Mode } from './interaction';
 import { oddsCard } from './oddsCard';
 import { summarizePath } from './pathSummary';
 import { netLabel, type Scoreboard, scoreLine } from './scoreboard';
-import { percent, type Strings } from './strings';
+import { factionName, percent, type Strings } from './strings';
 import { battleLosses, type Summary } from './summary';
 import type { Theme } from './theme';
 
@@ -195,7 +195,7 @@ export function cityPanel(ctx: PanelContext, card: CityCard): string {
   const holding = card.holding ? `<p class="note">${esc(card.holding)}</p>` : '';
   const close = `<div class="actions"><button data-action="cancel">Close</button></div>`;
   if (!card.mine) {
-    const owner = card.owner ? ctx.content.factions[ctx.view.players.find((p) => p.id === card.owner)!.factionId]!.name : null;
+    const owner = card.owner ? factionName(ctx.view, ctx.content, card.owner) : null;
     const who = card.razed ? '' : owner ? `Held by the ${owner}.` : 'Neutral: move a stack in to take it.';
     return `${head}${who ? `<p class="note">${esc(who)}</p>` : ''}${holding}<p class="sub">Garrison: ${esc(card.garrison)}</p>${close}`;
   }
@@ -239,11 +239,11 @@ export function topBar(ctx: PanelContext, board: Scoreboard): string {
     .map((s) => `<i style="width:${(s.share * 100).toFixed(1)}%;background:${ctx.theme.factions[s.factionId]!.color}"></i>`)
     .join('');
   const stand = board.lastStand
-    ? `<span class="danger">Last stand: ${esc(board.lastStand === ctx.view.viewer ? 'you' : ctx.content.factions[ctx.view.players.find((p) => p.id === board.lastStand)!.factionId]!.shortName)}</span>`
+    ? `<span class="danger">Last stand: ${esc(board.lastStand === ctx.view.viewer ? 'you' : factionName(ctx.view, ctx.content, board.lastStand, true))}</span>`
     : '';
   const me = ctx.view.players.find((p) => p.id === ctx.view.viewer)!;
   return `<div class="top-row">
-      <span class="who">${bannerFor(ctx, me.id)}<span class="faction">${esc(ctx.content.factions[me.factionId]!.shortName)}</span></span>
+      <span class="who">${bannerFor(ctx, me.id)}<span class="faction">${esc(factionName(ctx.view, ctx.content, me.id, true))}</span></span>
       <span class="gold"><i class="coin" aria-hidden="true"></i><b>${board.gold}</b><span class="${board.net < 0 ? 'danger' : 'good'}">${netLabel(board.net)}</span></span>
       <span class="turn"><b>Turn ${board.turn}</b> <span class="sub">of ${board.turnLimit}</span></span>
     </div>
@@ -266,7 +266,7 @@ export function summaryOverlay(ctx: PanelContext, summary: Summary): string {
     .join('');
   const player = ctx.view.players.find((p) => p.id === ctx.view.viewer)!;
   return `<div class="summary-card">
-    <div class="summary-head">${bannerFor(ctx, player.id)}<div><h2>Turn ${summary.turn}</h2><div class="sub">${esc(ctx.content.factions[player.factionId]!.name)} · while you were away</div></div></div>
+    <div class="summary-head">${bannerFor(ctx, player.id)}<div><h2>Turn ${summary.turn}</h2><div class="sub">${esc(factionName(ctx.view, ctx.content, player.id))} · while you were away</div></div></div>
     <div class="label">Secured income <span class="sub inline">Win at ${summary.board.target} of ${summary.board.total}</span></div>
     <div class="sbars">${bars}</div>
     <p class="economy">${esc(summary.economy)}</p>
@@ -282,7 +282,7 @@ export function gameOverOverlay(ctx: PanelContext): string {
   const why = { domination: 'by domination', 'last-standing': 'as the last player standing', 'turn-limit': 'on score when the last turn ended' }[w.reason];
   // Hot-seat: whoever holds the device may not be the viewer, so name the winner rather than saying "you".
   const title =
-    w.playerId === null ? 'A draw' : `Victory for the ${ctx.content.factions[ctx.view.players.find((p) => p.id === w.playerId)!.factionId]!.name}`;
+    w.playerId === null ? 'A draw' : `Victory for the ${factionName(ctx.view, ctx.content, w.playerId)}`;
   const detail = w.playerId === null ? 'Equal score and equal armies when the last turn ended.' : `Won ${why}.`;
   return `<div class="handoff-card">${w.playerId ? bannerFor(ctx, w.playerId).replace('class="banner', 'class="banner big') : ''}
     <h2>${esc(title)}</h2><p>${esc(detail)}</p><button class="primary" data-input="newGame">New game</button></div>`;

@@ -33,25 +33,20 @@ export function setProduction(
 
 /** A city whose owner just changed: its production stops and its hold starts over. */
 function taken(city: CityState, owner: PlayerId): CityState {
-  return { ...city, owner, production: null, heldSince: null, secured: false };
+  return { ...city, owner, production: null, held: false, secured: false };
 }
 
 /**
- * Takes the city on `hex` for the owner of `stackId` if it is a standing city
+ * Takes the city the stack `stackId` stands on for its owner if it is a standing city
  * someone else holds (or nobody does). With `choose`, the capture joins the
  * current player's pending captures, to resolve before ending the turn;
  * without it (a defender falling back into an empty city during the enemy's
  * turn) the city is simply occupied.
  */
-export function captureAt(
-  state: GameState,
-  stackId: string,
-  hex: Hex,
-  choose: boolean,
-): { state: GameState; events: TurnEvent[] } {
+export function captureAt(state: GameState, stackId: string, choose: boolean): { state: GameState; events: TurnEvent[] } {
   const stack = state.stacks[stackId];
-  const city = cityAt(state, hex);
-  if (!stack || !sameHex(stack.pos, hex) || !city || city.state.razed || city.state.owner === stack.owner) {
+  const city = stack && cityAt(state, stack.pos);
+  if (!stack || !city || city.state.razed || city.state.owner === stack.owner) {
     return { state, events: [] };
   }
   const siteId = city.site.id;
@@ -74,7 +69,7 @@ export function resolveCapture(state: GameState, playerId: PlayerId, siteId: str
   if (city.owner !== playerId || city.razed) return { error: 'That city is no longer yours' };
   let next: CityState = city;
   let gold = 0;
-  const razed: CityState = { ...city, owner: null, razed: true, production: null, heldSince: null, secured: false };
+  const razed: CityState = { ...city, owner: null, razed: true, production: null, held: false, secured: false };
   if (choice === 'pillage') {
     gold = pillageGold(city.tier);
     const tier = pillagedTier(city.tier);

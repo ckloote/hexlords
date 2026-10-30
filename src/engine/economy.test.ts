@@ -59,7 +59,7 @@ describe('income and score', () => {
   });
 
   it('counts only secured cities toward the score, and drops razed ones from every total', () => {
-    const fresh = { ...s, cities: { ...s.cities, c4: { ...s.cities.c4!, owner: 'p1', secured: false, heldSince: null } } };
+    const fresh = { ...s, cities: { ...s.cities, c4: { ...s.cities.c4!, owner: 'p1', secured: false, held: false } } };
     expect(incomeOf(fresh, 'p1')).toBe(30);
     expect(securedScore(fresh, 'p1')).toBe(20);
     const razed = { ...s, cities: { ...s.cities, c0: { ...s.cities.c0!, owner: null, razed: true } } };

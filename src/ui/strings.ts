@@ -3,7 +3,8 @@
 
 import type { CityTier } from '../engine/map';
 import { MODIFIER_SOURCES, type ModifierSource } from '../engine/modifiers';
-import type { BattleReport, CaptureChoice, Stance } from '../engine/types';
+import type { ContentPack } from '../engine/content';
+import type { BattleReport, CaptureChoice, PlayerId, Stance, World } from '../engine/types';
 
 export const OUTCOMES = ['win', 'withdraw', 'destroyed', 'defender-withdraw', 'evaded'] as const;
 const STANCES: readonly Stance['kind'][] = ['hold', 'fall-back', 'evade'];
@@ -40,6 +41,13 @@ export function loadStrings(raw: unknown): Strings {
     capture: pick('capture', CAPTURE),
     tags: Object.fromEntries(Object.entries(r.tags ?? {}).filter((e): e is [string, string] => typeof e[1] === 'string')),
   };
+}
+
+/** The faction name of a player ("Orc Horde", or "Orcs" when short); "Someone" for an unknown or absent player. */
+export function factionName(world: Pick<World, 'players'>, content: ContentPack, playerId: PlayerId | null, short = false): string {
+  const faction = content.factions[world.players.find((p) => p.id === playerId)?.factionId ?? ''];
+  if (!faction) return 'Someone';
+  return short ? faction.shortName : faction.name;
 }
 
 /** "+18" or "−4" (with a real minus sign). */

@@ -67,7 +67,7 @@ export function createGame(setup: GameSetup, content: ContentPack): GameState {
       tier: site.tier,
       razed: false,
       production: null,
-      heldSince: owner === null ? null : 0,
+      held: owner !== null,
       secured: owner !== null,
     };
   }
@@ -171,8 +171,7 @@ function captureAfterMove(result: CommandResult): CommandResult {
   const moved = result.events.find((e) => e.kind === 'moved');
   if (!moved || moved.kind !== 'moved') return result;
   const id = moved.mergedInto ?? moved.stackId;
-  const stack = result.state.stacks[id]!;
-  const capture = captureAt(result.state, id, stack.pos, true);
+  const capture = captureAt(result.state, id, true);
   return { state: capture.state, events: [...result.events, ...capture.events] };
 }
 
@@ -283,13 +282,13 @@ function attack(
   if (defenderRetreatTo) {
     const holder = Object.values(stacks).find((st) => st.owner === defender.owner && sameHex(st.pos, defenderRetreatTo));
     if (holder) {
-      const r = captureAt(next, holder.id, defenderRetreatTo, false);
+      const r = captureAt(next, holder.id, false);
       next = r.state;
       events.push(...r.events);
     }
   }
   if (attackerAdvanced) {
-    const r = captureAt(next, attacker.id, defender.pos, true);
+    const r = captureAt(next, attacker.id, true);
     next = r.state;
     events.push(...r.events);
   }
