@@ -105,7 +105,7 @@ export function computeOdds(
 
   function attackerWithdraws(i: number, ha: number, j: number): Float64Array {
     const v = terminal(WITHDRAW, i, j);
-    const pursuer = choosePursuer(D.slice(j));
+    const pursuer = D[j + choosePursuer(D.slice(j))]!;
     if (!isCleanBreak(A.slice(i), pursuer) && ha === 1) {
       v[HEAD + i] = 1 - hitChance(pursuer.strength, A[i]!.strength);
     }
@@ -114,7 +114,7 @@ export function computeOdds(
 
   function defenderWithdraws(i: number, j: number, hd: number): Float64Array {
     const v = terminal(DEF_WITHDRAW, i, j);
-    const pursuer = choosePursuer(A.slice(i));
+    const pursuer = A[i + choosePursuer(A.slice(i))]!;
     if (!isCleanBreak(D.slice(j), pursuer) && hd === 1) {
       v[HEAD + nA + j] = 1 - hitChance(pursuer.strength, D[j]!.strength);
     }

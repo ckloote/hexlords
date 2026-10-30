@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Fighter } from './fight';
 import { computeOdds } from './odds';
+import { gravelmaw } from './test-fixtures';
 
 function same(strength: number, hits: number, count: number, move = 8): Fighter[] {
   return Array.from({ length: count }, () => ({ strength, hits, move }));
@@ -24,26 +25,6 @@ const holdCases: [string, Fighter[], Fighter[], number][] = [
   ['Hero 6/4 vs guardian 6/3', same(6, 4, 1), same(6, 3, 1), 0.6562],
   ['Hero 6/4 vs guardian 8/3', same(6, 4, 1), same(8, 3, 1), 0.5148],
 ];
-
-/** Gravelmaw, with effective Strengths already applied (see modifiers.test.ts). */
-export function gravelmaw(): { attackers: Fighter[]; defenders: Fighter[] } {
-  return {
-    attackers: [
-      { strength: 2.5, hits: 2, move: 6 }, // siege engine
-      { strength: 5, hits: 2, move: 8 }, // infantry
-      { strength: 5, hits: 1, move: 8 }, // infantry, wounded
-      { strength: 6.25, hits: 3, move: 6 }, // ironguard
-      { strength: 6.25, hits: 3, move: 10 }, // hero
-    ],
-    defenders: [
-      { strength: 2, hits: 2, move: 8 },
-      { strength: 2, hits: 2, move: 8 },
-      { strength: 4, hits: 2, move: 8 },
-      { strength: 4, hits: 2, move: 8 },
-      { strength: 5, hits: 3, move: 8 },
-    ],
-  };
-}
 
 describe('computeOdds: hold reference values', () => {
   for (const [name, a, d, expected] of holdCases) {

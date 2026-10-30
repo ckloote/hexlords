@@ -27,12 +27,13 @@ export function hitChance(a: number, d: number): number {
   return a / (a + d);
 }
 
-/** The pursuer among `candidates`: fastest, ties to the strongest, then the first listed. */
-export function choosePursuer(candidates: readonly Fighter[]): Fighter {
-  let best = candidates[0]!;
-  for (const f of candidates) {
-    if (f.move > best.move || (f.move === best.move && f.strength > best.strength)) best = f;
-  }
+/** Index of the pursuer among `candidates`: fastest, ties to the strongest, then the first listed. */
+export function choosePursuer(candidates: readonly Fighter[]): number {
+  let best = 0;
+  candidates.forEach((f, k) => {
+    const b = candidates[best]!;
+    if (f.move > b.move || (f.move === b.move && f.strength > b.strength)) best = k;
+  });
   return best;
 }
 
