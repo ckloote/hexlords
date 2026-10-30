@@ -94,7 +94,16 @@ Win probability for the attacker, fighting to the end; every unit has 2 hits unl
 | 4 × 4/2 M8 (Hold) vs 4 × 4/2 M12, Fall back 30% (clean break) | 0.0978 | 0.5330 | 0 | 0.3693 | 1.929 | 1.955 |
 | 4 × 4/2 vs 4 × 4/2, attacker 30%, Fall back 30% | 0.0264 | 0.4736 | 0.4736 | 0.0264 | 2.846 | 2.846 |
 
-The exact retreat and pursuit semantics behind these numbers are in the docstring of `docs/reference/combat_reference.py`; match them. Not modelled there yet: retreat-hex availability (a side with no legal retreat hex skips its check; milestone 2) and units that strike more than once when pursuing (Horse Archers; milestone 7).
+**Pursuit strikes** (all M8 unless noted; cavalry 4/2 M12; Horse Archers 3/2 M12 with 2 pursuit strikes). Pursuit that kills every withdrawing unit counts as Destroyed (or Win, when the defender withdrew).
+
+| Battle | Win | Defender withdraws | Attacker withdraws | Destroyed | Attackers alive | Defenders alive |
+| --- | --- | --- | --- | --- | --- | --- |
+| 4 × 4/2, withdraw below 50%, vs 3 × 4/2 + 2 cavalry | 0.0684 | 0 | 0.9219 | 0.0098 | 2.978 | 4.135 |
+| Same, but the cavalry strike twice | 0.0684 | 0 | 0.9180 | 0.0137 | 2.748 | 4.135 |
+| 4 × 4/2, withdraw below 50%, vs 3 × 4/2 + 2 Horse Archers | 0.1093 | 0 | 0.8752 | 0.0155 | 2.764 | 3.812 |
+| 3 Horse Archers + 2 × 4/2 (Hold) vs 4 × 4/2, Fall back 50% | 0.0168 | 0.8590 | 0 | 0.1242 | 3.764 | 2.762 |
+
+The exact retreat and pursuit semantics behind these numbers are in the docstring of `docs/reference/combat_reference.py`; match them. Not modelled there yet: retreat-hex availability (a side with no legal retreat hex skips its check; milestone 2).
 
 ## Working style
 

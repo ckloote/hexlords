@@ -20,14 +20,21 @@ Rules modelled (see DESIGN.md, Combat and Retreat sections):
   it withdraws if its own win chance, 1 - P(attacker wins on Hold), is below
   its threshold. The attacker's check runs first, so if both would withdraw,
   the attacker does.
-- On withdrawal, pursuit: the other side's fastest surviving unit (ties: the
-  strongest, then the first in fight order) strikes the withdrawing side's
-  weakest surviving unit once, with probability P / (P + T). It kills only if
-  the target has 1 hit left. No pursuit if every surviving unit of the
-  withdrawing side is at least as fast as the pursuer.
+- On withdrawal, pursuit: the other side's fastest surviving unit (ties: more
+  pursuit strikes, then the strongest, then the first in fight order) strikes
+  the withdrawing side's weakest surviving unit, with probability P / (P + T)
+  per strike. Most units strike once; some (Horse Archers) strike twice. The
+  strikes resolve one at a time: a strike removes one hit, a unit at 0 hits
+  dies, and the next strike targets the weakest unit still alive, so a second
+  strike can finish a unit the first one wounded.
+- Clean break: no pursuit if every surviving unit of the withdrawing side is
+  at least as fast as the pursuer. This is checked once, before the first
+  strike.
+- If pursuit kills every withdrawing unit, the battle counts as that side
+  destroyed, not as a withdrawal: "destroyed" when the attacker was
+  withdrawing, "win" when the defender was.
 - Not modelled yet: whether a legal retreat hex exists (with none, that side
-  cannot withdraw, so its check is skipped), and units that strike more than
-  once when pursuing.
+  cannot withdraw, so its check is skipped).
 """
 
 from dataclasses import dataclass
@@ -40,6 +47,7 @@ class Unit:
     strength: float  # effective Strength, modifiers already applied
     hits: int        # remaining hits
     move: int = 8
+    pursuit_strikes: int = 1
 
 
 def fight_order(units):
@@ -69,22 +77,38 @@ def make_battle(attackers, defenders):
         lose = p_win(i, ha - 1, j, hd) if ha > 1 else p_win(i + 1, a_hits(i + 1), j, hd)
         return p * win + (1 - p) * lose
 
-    def pursuit_kill_chance(pursuers, withdrawing, front_hits):
-        """Chance the pursuit strike kills the withdrawing side's front unit."""
-        pursuer = max(pursuers, key=lambda u: (u.move, u.strength))
-        clean_break = all(u.move >= pursuer.move for u in withdrawing)
-        if clean_break or front_hits != 1:
-            return 0.0
-        target = withdrawing[0]
-        return pursuer.strength / (pursuer.strength + target.strength)
+    def pursuit(pursuers, withdrawing, front_hits):
+        """(P every withdrawing unit dies, E withdrawing units alive) after pursuit.
+
+        `withdrawing` is in fight order; its front unit has `front_hits` left.
+        """
+        n = len(withdrawing)
+        pursuer = max(pursuers, key=lambda u: (u.move, u.pursuit_strikes, u.strength))
+        if all(u.move >= pursuer.move for u in withdrawing):
+            return 0.0, float(n)
+        states = {(0, front_hits): 1.0}  # (front index, its hits) -> probability
+        for _ in range(pursuer.pursuit_strikes):
+            nxt = {}
+            for (k, h), pr in states.items():
+                if k == n:
+                    nxt[(k, h)] = nxt.get((k, h), 0.0) + pr
+                    continue
+                q = pursuer.strength / (pursuer.strength + withdrawing[k].strength)
+                nxt[(k, h)] = nxt.get((k, h), 0.0) + pr * (1 - q)
+                hit = (k, h - 1) if h > 1 else (k + 1, withdrawing[k + 1].hits if k + 1 < n else 0)
+                nxt[hit] = nxt.get(hit, 0.0) + pr * q
+            states = nxt
+        all_dead = sum(pr for (k, _), pr in states.items() if k == n)
+        alive = sum(pr * (n - k) for (k, _), pr in states.items())
+        return all_dead, alive
 
     def attacker_withdraws(i, ha, j):
-        alive = nA - i - pursuit_kill_chance(D[j:], A[i:], ha)
-        return (0.0, 1.0, 0.0, 0.0, alive, nD - j)
+        dead, alive = pursuit(D[j:], A[i:], ha)
+        return (0.0, 1.0 - dead, dead, 0.0, alive, nD - j)
 
     def defender_withdraws(i, j, hd):
-        alive = nD - j - pursuit_kill_chance(A[i:], D[j:], hd)
-        return (0.0, 0.0, 0.0, 1.0, nA - i, alive)
+        dead, alive = pursuit(A[i:], D[j:], hd)
+        return (dead, 0.0, 0.0, 1.0 - dead, nA - i, alive)
 
     @lru_cache(maxsize=None)
     def play(i, ha, j, hd, threshold, defender_threshold):
@@ -124,8 +148,8 @@ def make_battle(attackers, defenders):
     return hold_probability, outcome
 
 
-def same(strength, hits, count, name="unit", move=8):
-    return [Unit(name, strength, hits, move) for _ in range(count)]
+def same(strength, hits, count, name="unit", move=8, strikes=1):
+    return [Unit(name, strength, hits, move, strikes) for _ in range(count)]
 
 
 def main():
@@ -185,6 +209,25 @@ def main():
          same(4, 2, 4), same(4, 2, 4), 0.3, 0.3),
     ]
     for name, a, d, t_att, t_def in field_cases:
+        _, outcome = make_battle(a, d)
+        w, r, x, dw, ea, ed = outcome(t_att, t_def)
+        print(f"  {name}\n    win {w:.4f}, defender withdraws {dw:.4f}, attacker withdraws {r:.4f}, "
+              f"destroyed {x:.4f}, attackers alive {ea:.3f}, defenders alive {ed:.3f}")
+
+    # Pursuit with two strikes (Horse Archers 3/2 M12). Each pair differs only in
+    # the fast defenders' pursuit strikes.
+    print("\nPursuit strikes")
+    pursuit_cases = [
+        ("4 infantry, withdraw below 50%, vs 3 infantry + 2 cavalry (4/2 M12, 1 strike)",
+         same(4, 2, 4), same(4, 2, 3) + same(4, 2, 2, move=12), 0.5, None),
+        ("4 infantry, withdraw below 50%, vs 3 infantry + 2 cavalry striking twice",
+         same(4, 2, 4), same(4, 2, 3) + same(4, 2, 2, move=12, strikes=2), 0.5, None),
+        ("4 infantry, withdraw below 50%, vs 3 infantry + 2 Horse Archers (3/2 M12, 2 strikes)",
+         same(4, 2, 4), same(4, 2, 3) + same(3, 2, 2, move=12, strikes=2), 0.5, None),
+        ("3 Horse Archers + 2 infantry, Hold, vs 4 infantry, Fall back 50%",
+         same(3, 2, 3, move=12, strikes=2) + same(4, 2, 2), same(4, 2, 4), None, 0.5),
+    ]
+    for name, a, d, t_att, t_def in pursuit_cases:
         _, outcome = make_battle(a, d)
         w, r, x, dw, ea, ed = outcome(t_att, t_def)
         print(f"  {name}\n    win {w:.4f}, defender withdraws {dw:.4f}, attacker withdraws {r:.4f}, "
