@@ -12,8 +12,11 @@ export interface Site {
   name: string;
   pos: Hex;
   tier: CityTier;
-  /** Owner at the start of the game; null for neutral. Capture comes in milestone 4. */
-  owner: PlayerId | null;
+  /**
+   * Owner when the game begins; null for neutral. Current ownership lives in
+   * the game state (World.cityOwners); never read this during play.
+   */
+  startOwner: PlayerId | null;
 }
 
 export interface MapState {

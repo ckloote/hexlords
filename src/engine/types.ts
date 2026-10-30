@@ -46,6 +46,8 @@ export interface Stack {
 export interface World {
   map: MapState;
   players: Player[];
+  /** Current owner of each city by site id (null for neutral). Public: fog hides only units. */
+  cityOwners: Record<string, PlayerId | null>;
   stacks: Record<string, Stack>;
   units: Record<string, Unit>;
 }

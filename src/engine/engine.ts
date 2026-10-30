@@ -41,12 +41,20 @@ export function createGame(setup: GameSetup, content: ContentPack): GameState {
       return { id: p.id, factionId: p.factionId, eliminated: false };
     }),
     map: setup.map,
+    cityOwners: {},
     stacks: {},
     units: {},
     explored: {},
     nextId: 1,
   };
   if (state.players.length === 0) throw new Error('A game needs players');
+  for (const site of setup.map.sites) {
+    const owner = site.startOwner;
+    if (owner !== null && !state.players.some((p) => p.id === owner)) {
+      throw new Error(`City ${site.name} belongs to unknown player "${owner}"`);
+    }
+    state.cityOwners[site.id] = owner;
+  }
   let nextUnit = 1;
   for (const s of setup.stacks) {
     if (!state.players.some((p) => p.id === s.owner)) throw new Error(`Unknown owner "${s.owner}"`);

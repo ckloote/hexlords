@@ -107,7 +107,7 @@ export function loadTiledMap(json: unknown, content: ContentPack): MapState {
       name: typeof o.name === 'string' && o.name ? o.name : `City ${String(o.id)}`,
       pos,
       tier,
-      owner: typeof p.owner === 'string' && p.owner ? p.owner : null,
+      startOwner: typeof p.owner === 'string' && p.owner ? p.owner : null,
     };
     map.sites.push(site);
   }

@@ -37,6 +37,20 @@ describe('vision', () => {
     expect(visibleHexes(s, fantasy, 'dw').has(hexKey(at(0, 0)))).toBe(false);
   });
 
+  it('takes city ownership from the game state, not the map file', () => {
+    const map = asciiMap(['.....', '.....', '.....'], [{ at: at(0, 0), tier: 'village', owner: 'orc' }]);
+    const s = game(map, [{ owner: 'dw', pos: at(4, 2), units: ['infantry'] }]);
+    expect(s.cityOwners).toEqual({ c0: 'orc' });
+    const changed = { ...s, cityOwners: { c0: 'dw' } };
+    expect(visibleHexes(changed, fantasy, 'dw').has(hexKey(at(0, 0)))).toBe(true);
+    expect(visibleHexes(changed, fantasy, 'orc').has(hexKey(at(0, 0)))).toBe(false);
+  });
+
+  it('rejects a map whose city belongs to an unknown player', () => {
+    const map = asciiMap(['...'], [{ at: at(0, 0), tier: 'village', owner: 'nobody' }]);
+    expect(() => game(map, [{ owner: 'dw', pos: at(2, 0), units: ['infantry'] }])).toThrow(/nobody/);
+  });
+
   it('remembers explored hexes after moving away', () => {
     const s = game(plainsMap(12, 3), [{ owner: 'dw', pos: at(1, 1), units: ['infantry'] }]);
     const moved = refreshExplored({ ...s, stacks: { s1: { ...s.stacks.s1!, pos: at(10, 1) } } }, fantasy);
@@ -61,6 +75,7 @@ describe('viewFor', () => {
     expect('rng' in view).toBe(false);
     expect(view.explored.length).toBeGreaterThan(0);
     expect(view.visible).toContain(hexKey(at(3, 1)));
+    expect(view.cityOwners).toEqual(s.cityOwners);
   });
 
   it('is plain data and leaves the state alone', () => {

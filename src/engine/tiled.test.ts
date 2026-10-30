@@ -28,10 +28,10 @@ describe('loadTiledMap', () => {
   });
 
   it('places cities from point objects at hex centers', () => {
-    expect(siteAt(map, fromOffset(6, 2))).toMatchObject({ name: 'Gravelmaw', tier: 'city', owner: 'p2' });
-    expect(siteAt(map, fromOffset(6, 14))).toMatchObject({ name: 'Stonebridge', tier: 'city', owner: 'p1' });
-    expect(siteAt(map, fromOffset(11, 12))).toMatchObject({ name: 'Kettle Ford', tier: 'village', owner: 'p1' });
-    expect(siteAt(map, fromOffset(12, 4))).toMatchObject({ name: 'Hollow Pine', tier: 'village', owner: null });
+    expect(siteAt(map, fromOffset(6, 2))).toMatchObject({ name: 'Gravelmaw', tier: 'city', startOwner: 'p2' });
+    expect(siteAt(map, fromOffset(6, 14))).toMatchObject({ name: 'Stonebridge', tier: 'city', startOwner: 'p1' });
+    expect(siteAt(map, fromOffset(11, 12))).toMatchObject({ name: 'Kettle Ford', tier: 'village', startOwner: 'p1' });
+    expect(siteAt(map, fromOffset(12, 4))).toMatchObject({ name: 'Hollow Pine', tier: 'village', startOwner: null });
     expect(map.sites).toHaveLength(4);
   });
 

@@ -123,6 +123,9 @@ describe('retreat hexes', () => {
   it('prefers a friendly city, then the cheapest hex', () => {
     const city = game({ cities: [{ at: REAR[2]!, tier: 'village', owner: 'dw' }, { at: REAR[1]!, tier: 'city', owner: 'orc' }] });
     expect(retreatHex(city, fantasy, city.stacks.s2!, A)).toEqual(REAR[2]);
+    // Ownership comes from the game state: once the village changes hands it no longer attracts.
+    const taken = { ...city, cityOwners: { ...city.cityOwners, c0: 'orc' } };
+    expect(retreatHex(taken, fantasy, taken.stacks.s2!, A)).toEqual(REAR[0]);
     const cheap = game({ overrides: [[REAR[0]!, 'f'], [REAR[1]!, 's']] });
     expect(retreatHex(cheap, fantasy, cheap.stacks.s2!, A)).toEqual(REAR[2]);
   });

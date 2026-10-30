@@ -28,7 +28,7 @@ export function visibleHexes(world: World, content: ContentPack, playerId: Playe
   for (const stack of Object.values(world.stacks)) {
     if (stack.owner === playerId) add(stack.pos, stackVision(world, content, stack));
   }
-  for (const site of world.map.sites) if (site.owner === playerId) add(site.pos, RULES.cityVision);
+  for (const site of world.map.sites) if (world.cityOwners[site.id] === playerId) add(site.pos, RULES.cityVision);
   return seen;
 }
 
@@ -70,6 +70,7 @@ export function viewFor(state: GameState, content: ContentPack, playerId: Player
     currentPlayer: state.currentPlayer,
     map: state.map,
     players: state.players.map((p) => ({ ...p })),
+    cityOwners: { ...state.cityOwners },
     stacks,
     units,
     visible: [...visible].sort(),

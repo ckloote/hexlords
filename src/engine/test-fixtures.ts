@@ -39,7 +39,7 @@ export function asciiMap(
     });
   });
   cities.forEach((c, k) =>
-    map.sites.push({ id: `c${k}`, kind: 'city', name: c.name ?? `City ${k}`, pos: c.at, tier: c.tier, owner: c.owner ?? null }),
+    map.sites.push({ id: `c${k}`, kind: 'city', name: c.name ?? `City ${k}`, pos: c.at, tier: c.tier, startOwner: c.owner ?? null }),
   );
   return map;
 }

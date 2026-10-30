@@ -37,7 +37,8 @@ export function retreatHex(world: World, content: ContentPack, stack: Stack, att
     const there = Object.values(world.stacks).find((s) => s.id !== stack.id && sameHex(s.pos, hex));
     if (there && (there.owner !== stack.owner || there.unitIds.length + stack.unitIds.length > RULES.maxStackSize)) continue;
     const site = siteAt(world.map, hex);
-    options.push({ hex, city: site?.kind === 'city' && site.owner === stack.owner, cost: hexCost(world, content, mover, hex) });
+    const friendlyCity = site?.kind === 'city' && world.cityOwners[site.id] === stack.owner;
+    options.push({ hex, city: friendlyCity, cost: hexCost(world, content, mover, hex) });
   }
   options.sort((a, b) => Number(b.city) - Number(a.city) || a.cost - b.cost); // stable: direction order breaks ties
   return options[0]?.hex ?? null;
