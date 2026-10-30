@@ -1,6 +1,7 @@
 {
   "name": "Test map skirmish",
   "seed": "test-map-1",
+  "startingGold": 50,
   "players": [
     { "id": "p1", "factionId": "dwarves" },
     { "id": "p2", "factionId": "orc-horde" }

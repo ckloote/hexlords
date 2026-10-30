@@ -13,12 +13,13 @@ import type { GameState, Stance } from '../engine/types';
 interface ScenarioJson {
   seed: string | number;
   players: GameSetup['players'];
+  startingGold?: number;
   stacks: { owner: string; at: [number, number]; units: GameSetup['stacks'][number]['units']; stance?: unknown }[];
 }
 
 export function scenarioSetup(raw: unknown, map: MapState): GameSetup {
   const s = raw as ScenarioJson;
-  return {
+  const setup: GameSetup = {
     seed: s.seed,
     map,
     players: s.players,
@@ -28,6 +29,8 @@ export function scenarioSetup(raw: unknown, map: MapState): GameSetup {
       return out;
     }),
   };
+  if (s.startingGold !== undefined) setup.startingGold = s.startingGold;
+  return setup;
 }
 
 export function demoGame(content: ContentPack = fantasy): GameState {
