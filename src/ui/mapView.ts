@@ -36,9 +36,10 @@ export class MapView {
   private plan = new Container();
   private fog = new Graphics();
   private stacks = new Container();
+  private cities = new Container();
 
   constructor(private theme: Theme) {
-    this.world.addChild(this.terrain, this.fog, this.overlay, this.stacks, this.plan);
+    this.world.addChild(this.terrain, this.cities, this.fog, this.overlay, this.stacks, this.plan);
   }
 
   /** Draws the static layers (terrain, roads, crossings, cities). Call once per map. */
@@ -51,7 +52,7 @@ export class MapView {
       ground.poly(corners).fill(this.theme.terrain[terrainAt(view.map, h)!] ?? '#000000');
       grid.poly(corners).stroke({ width: 1, color: '#23251F', alpha: 0.32 });
     }
-    this.terrain.addChild(ground, this.drawTerrainMarks(view), grid, this.drawRoads(view), this.drawCities(view));
+    this.terrain.addChild(ground, this.drawTerrainMarks(view), grid, this.drawRoads(view));
   }
 
   /** Small marks so terrain reads without relying on color alone. */
@@ -112,31 +113,41 @@ export class MapView {
     return g;
   }
 
-  private drawCities(view: PlayerView): Container {
-    const layer = new Container();
+  /** Cities change hands, tier, and production during play, so they are redrawn with the state. */
+  private drawCities(view: PlayerView, highlight?: Hex): void {
+    this.cities.removeChildren();
+    const layer = this.cities;
     for (const site of view.map.sites) {
       const c = hexToPixel(site.pos);
-      const owner = view.cities[site.id]?.owner;
-      const faction = view.players.find((p) => p.id === owner)?.factionId;
+      const city = view.cities[site.id]!;
+      const faction = view.players.find((p) => p.id === city.owner)?.factionId;
       const ring = faction ? this.theme.factions[faction]!.color : this.theme.ui.neutral;
-      const size = site.tier === 'village' ? 9 : site.tier === 'city' ? 12 : 14;
+      const size = city.tier === 'village' ? 9 : city.tier === 'city' ? 12 : 14;
       const g = new Graphics();
-      g.roundRect(c.x - size, c.y - size, size * 2, size * 2, 3).fill('#3A3328').stroke({ width: 2.5, color: ring });
-      // Battlements.
-      for (let k = -1; k <= 1; k++) g.rect(c.x + k * size * 0.6 - 2, c.y - size - 4, 4, 4).fill('#3A3328');
+      if (highlight && highlight.q === site.pos.q && highlight.r === site.pos.r) g.circle(c.x, c.y, 24).stroke({ width: 3, color: this.theme.ui.path });
+      if (city.razed) {
+        // Rubble: broken walls, no owner.
+        for (const [dx, dy, w] of [[-9, 2, 8], [1, -4, 7], [-2, 6, 10]] as const) g.rect(c.x + dx, c.y + dy, w, 4).fill('#5E5547');
+      } else {
+        g.roundRect(c.x - size, c.y - size, size * 2, size * 2, 3).fill('#3A3328').stroke({ width: 2.5, color: ring, alpha: city.secured || !city.owner ? 1 : 0.55 });
+        // Battlements.
+        for (let k = -1; k <= 1; k++) g.rect(c.x + k * size * 0.6 - 2, c.y - size - 4, 4, 4).fill('#3A3328');
+        // Something in production (only the owner sees this).
+        if (city.production) g.circle(c.x + size, c.y - size, 4).fill(this.theme.ui.path).stroke({ width: 1.5, color: '#15171B' });
+      }
       const label = new Text({
-        text: site.name,
+        text: city.razed ? `${site.name} (ruins)` : site.name,
         style: { fontFamily: 'Source Sans 3, system-ui, sans-serif', fontSize: 11, fontWeight: '700', fill: '#FFF8EA', stroke: { color: '#15171B', width: 3 } },
       });
       label.anchor.set(0.5, 0);
       label.position.set(c.x, c.y + size + 2);
       layer.addChild(g, label);
     }
-    return layer;
   }
 
-  /** Draws what changes: fog, stacks, and the selection overlay. */
-  drawState(view: PlayerView, selection: Selection | null, plan: Plan | null = null): void {
+  /** Draws what changes: cities, fog, stacks, and the selection overlay. `city` marks the open city panel's city. */
+  drawState(view: PlayerView, selection: Selection | null, plan: Plan | null = null, city?: Hex): void {
+    this.drawCities(view, city);
     const visible = new Set(view.visible);
     this.fog.clear();
     for (const h of allHexes(view.map)) {

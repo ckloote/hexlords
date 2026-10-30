@@ -13,6 +13,9 @@ export interface RunResult {
 }
 
 export class Game {
+  /** Per player: events from other players' turns and their own turn start, kept for the turn summary. */
+  private inbox: Record<string, GameEvent[]> = {};
+
   constructor(
     public state: GameState,
     readonly content: ContentPack,
@@ -50,7 +53,14 @@ export class Game {
   /** One player input: interpret it, run the commands, and return the next UI state. */
   handle(ui: UiState, input: Input): { ui: UiState; events: GameEvent[] } {
     const step = interact(this.view(), this.content, ui, input);
+    const actor = this.playerId;
     const { events, error } = this.run(step.commands);
-    return { ui: settle(step.ui, events, error, this.view()), events };
+    for (const p of this.state.players) if (p.id !== actor) (this.inbox[p.id] ??= []).push(...events);
+    let next = settle(step.ui, events, error, this.view());
+    if (next.mode.kind === 'summary' && next.mode.events.length === 0) {
+      next = { ...next, mode: { kind: 'summary', events: this.inbox[this.playerId] ?? [] } };
+      this.inbox[this.playerId] = [];
+    }
+    return { ui: next, events };
   }
 }

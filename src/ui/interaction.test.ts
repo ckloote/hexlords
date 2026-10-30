@@ -18,6 +18,13 @@ function play(game: Game, inputs: Input[], start: UiState = initialUi): UiState 
   return ui;
 }
 
+/** Ends the turn (past the idle-city warning) and starts the next player's: hand-off, then the summary. */
+function passTurn(game: Game, start: UiState = initialUi): UiState {
+  let ui = play(game, [{ kind: 'endTurn' }], start);
+  if (ui.endWarned) ui = play(game, [{ kind: 'endTurn' }], ui);
+  return play(game, [{ kind: 'continue' }, { kind: 'continue' }], ui);
+}
+
 describe('selecting and previewing moves', () => {
   it('selects your stack, ignores taps on enemies, and deselects', () => {
     const game = new Game(demoGame(), fantasy);
@@ -139,11 +146,19 @@ describe('turns and stances', () => {
 
   it('ends the turn with a hand-off; the next player sees only their own view', () => {
     const game = new Game(demoGame(), fantasy);
+    // Stonebridge and Kettle Ford have nothing in production: the first tap warns.
     let ui = play(game, [{ kind: 'endTurn' }]);
+    expect(ui.mode.kind).toBe('idle');
+    expect(ui.message).toBe('Kettle Ford and Stonebridge have nothing in production. Tap End turn again to end anyway.');
+    expect(game.playerId).toBe('p1');
+    ui = play(game, [{ kind: 'endTurn' }], ui);
     expect(ui.mode).toEqual({ kind: 'handoff', playerId: 'p2' });
     expect(game.playerId).toBe('p2');
-    // Taps do nothing until the new player continues.
+    // Taps do nothing until the new player continues, then the turn summary shows.
     expect(play(game, [{ kind: 'tap', hex: PATROL }], ui)).toEqual(ui);
+    ui = play(game, [{ kind: 'continue' }], ui);
+    expect(ui.mode.kind).toBe('summary');
+    if (ui.mode.kind === 'summary') expect(ui.mode.events).toContainEqual({ kind: 'turn-started', playerId: 'p2', turn: 1 });
     ui = play(game, [{ kind: 'continue' }], ui);
     expect(ui.mode.kind).toBe('idle');
     ui = play(game, [{ kind: 'tap', hex: PATROL }], ui);
@@ -157,12 +172,12 @@ describe('turns and stances', () => {
     play(game, [{ kind: 'tap', hex: HOST }, { kind: 'tap', hex: far }, { kind: 'confirm' }]);
     const midway = game.state.stacks.s1!.pos;
     // p1 ends, p2 ends, p1 continues: the host moves on.
-    let ui = play(game, [{ kind: 'endTurn' }, { kind: 'continue' }, { kind: 'endTurn' }, { kind: 'continue' }]);
+    let ui = passTurn(game, passTurn(game));
     expect(game.state.stacks.s1!.pos).not.toEqual(midway);
     expect(ui.message).toMatch(/continued along its route/);
     // A destination that can no longer be reached is cleared.
     game.state = { ...game.state, stacks: { ...game.state.stacks, s1: { ...game.state.stacks.s1!, destination: at(0, 8) } } };
-    ui = play(game, [{ kind: 'endTurn' }, { kind: 'continue' }, { kind: 'endTurn' }, { kind: 'continue' }], ui);
+    ui = passTurn(game, passTurn(game, ui));
     expect(game.state.stacks.s1!.destination).toBeUndefined();
   });
 });
