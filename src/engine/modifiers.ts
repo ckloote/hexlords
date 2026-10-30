@@ -24,10 +24,14 @@ export interface Combatant {
 
 export type Side = 'attacker' | 'defender';
 
+/** Every modifier source battleModifiers can produce; the UI labels each one. */
+export const MODIFIER_SOURCES = ['leadership', 'ford', 'city', 'siege', 'terrain', 'defense-bonus'] as const;
+export type ModifierSource = (typeof MODIFIER_SOURCES)[number];
+
 /** One line on the odds card. Applies to the whole side unless `unitIds` is set. */
 export interface ModifierLine {
   side: Side;
-  source: string;
+  source: ModifierSource;
   pct: number;
   unitIds?: string[];
 }

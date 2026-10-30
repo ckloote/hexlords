@@ -134,6 +134,18 @@ describe('Move', () => {
   });
 });
 
+describe('ClearDestination', () => {
+  it('drops a saved destination, for the owner only', () => {
+    const s = game(plainsMap(8, 1), [{ owner: 'dw', pos: at(0, 0), units: ['infantry'] }]);
+    const moved = run(s, move('s1', [1, 2, 3, 4, 5, 6].map((c) => at(c, 0)))).state;
+    expect(moved.stacks.s1!.destination).toEqual(at(6, 0));
+    const cleared = run(moved, { type: 'ClearDestination', playerId: 'dw', stackId: 's1' }).state;
+    expect(cleared.stacks.s1!.destination).toBeUndefined();
+    expect(moved.stacks.s1!.destination).toEqual(at(6, 0));
+    expect(err(moved, { type: 'ClearDestination', playerId: 'dw', stackId: 'nope' })).toMatch(/own/);
+  });
+});
+
 describe('turn start', () => {
   it('restores movement for the player whose turn begins', () => {
     const s = game(plainsMap(6, 3), [

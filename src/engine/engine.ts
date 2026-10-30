@@ -100,6 +100,13 @@ export function applyCommand(state: GameState, command: Command, content: Conten
     }
     case 'Attack':
       return attack(state, command, content);
+    case 'ClearDestination': {
+      const stack = state.stacks[command.stackId];
+      if (!stack || stack.owner !== player.id) return { error: 'You do not own that stack' };
+      const cleared: Stack = { ...stack };
+      delete cleared.destination;
+      return { state: { ...state, stacks: { ...state.stacks, [stack.id]: cleared } }, events: [] };
+    }
     case 'Move':
       return withExplored(applyMove(state, command, content), content);
     case 'SetProduction':

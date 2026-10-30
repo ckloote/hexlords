@@ -85,6 +85,8 @@ export type Command =
       /** Move only these units, splitting them off; default the whole stack. */
       unitIds?: string[];
     }
+  /** Forget a saved destination (the UI drops routes it can no longer plan). */
+  | { type: 'ClearDestination'; playerId: PlayerId; stackId: string }
   // Later milestones.
   | { type: 'SetProduction'; playerId: PlayerId; siteId: string; unitTypeId: string | null }
   | { type: 'Explore'; playerId: PlayerId; stackId: string };
