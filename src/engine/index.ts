@@ -16,5 +16,6 @@ export * from './rng';
 export * from './rules';
 export * from './tiled';
 export * from './types';
-export * from './turn';
+// endTurn and startTurn stay internal: turns change only through applyCommand's checks.
+export { turnLimitWinner } from './turn';
 export * from './vision';

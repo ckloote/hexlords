@@ -180,7 +180,8 @@ export interface MoveReport {
 /** Events of the economy and the turn cycle. */
 export type TurnEvent =
   | { kind: 'turn-started'; playerId: PlayerId; turn: number }
-  | { kind: 'captured'; playerId: PlayerId; siteId: string; from: PlayerId | null; stackId: string }
+  /** `tier`: the city's tier when it was taken. */
+  | { kind: 'captured'; playerId: PlayerId; siteId: string; from: PlayerId | null; tier: CityTier; stackId: string }
   /** `from`: whose city it was before the capture (null for neutral). */
   | { kind: 'capture-resolved'; playerId: PlayerId; siteId: string; from: PlayerId | null; choice: CaptureChoice; gold: number }
   | { kind: 'income'; playerId: PlayerId; income: number; upkeep: number; gold: number }

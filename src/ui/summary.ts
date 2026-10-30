@@ -4,7 +4,7 @@
 // viewer's own turn start.
 
 import type { ContentPack } from '../engine/content';
-import { cityIncome } from '../engine/economy';
+import { cityIncome, pillagedTier } from '../engine/economy';
 import type { BattleReport, GameEvent, PlayerId, TurnEvent } from '../engine/types';
 import type { PlayerView } from '../engine/vision';
 import { countNames } from './cityCard';
@@ -87,21 +87,28 @@ export function buildSummary(view: PlayerView, content: ContentPack, strings: St
   }
 
   const resolved = of('capture-resolved');
-  for (const e of of('captured')) {
-    // The taker's own choice for this city; a later owner's choice is someone else's story.
-    const fate = resolved.find((r) => r.siteId === e.siteId && r.playerId === e.playerId && r.from === e.from)?.choice;
-    const city = view.cities[e.siteId]!;
+  const captures = of('captured');
+  captures.forEach((e, k) => {
+    // Your stack fell back into a city the enemy had just taken from you: one line, not "lost" and "took".
+    const retaken = (c: Of<'captured'>) => c.siteId === e.siteId && c.playerId === me;
+    if (e.playerId === me && captures.slice(0, k).some((c) => c.siteId === e.siteId && c.from === me)) return;
     if (e.from === me) {
+      if (captures.slice(k + 1).some(retaken)) {
+        items.push({ tone: 'good', title: `The ${nameOf(e.playerId)} took ${siteName(e.siteId)}`, detail: 'Your stack fell back into it and took it back.' });
+        return;
+      }
+      // Worded from the city as it was taken and what this taker chose, not from its state now.
+      const fate = resolved.find((r) => r.siteId === e.siteId && r.playerId === e.playerId && r.from === e.from)?.choice;
+      const after = pillagedTier(e.tier);
       const detail =
         fate === 'raze' ? 'They razed it.'
-        : fate === 'pillage' ? (city.razed ? 'They pillaged it to the ground.' : `They pillaged it; it is now a ${strings.tiers[city.tier].toLowerCase()}.`)
-        : city.razed ? 'City lost.'
-        : `${strings.tiers[city.tier]} lost · income −${cityIncome(city.tier)} a turn`;
+        : fate === 'pillage' ? (after ? `They pillaged it; it is now a ${strings.tiers[after].toLowerCase()}.` : 'They pillaged it to the ground.')
+        : `${strings.tiers[e.tier]} lost · income −${cityIncome(e.tier)} a turn`;
       items.push({ tone: 'danger', title: `The ${nameOf(e.playerId)} took ${siteName(e.siteId)}`, detail });
     } else if (e.playerId === me) {
       items.push({ tone: 'good', title: `You took ${siteName(e.siteId)}`, detail: 'Your stack fell back into the empty city and holds it.' });
     }
-  }
+  });
 
   const built = of('unit-built').filter((e) => e.playerId === me);
   if (built.length) {

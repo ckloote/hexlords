@@ -55,7 +55,9 @@ export function createGame(setup: GameSetup, content: ContentPack): GameState {
     pendingCaptures: [],
   };
   if (state.players.length === 0) throw new Error('A game needs players');
-  for (const p of state.players) state.gold[p.id] = setup.startingGold ?? RULES.startingGold;
+  const startingGold = setup.startingGold ?? RULES.startingGold;
+  if (!Number.isInteger(startingGold) || startingGold < 0) throw new Error('startingGold must be a whole number of 0 or more');
+  for (const p of state.players) state.gold[p.id] = startingGold;
   for (const site of setup.map.sites) {
     const owner = site.startOwner;
     if (owner !== null && !state.players.some((p) => p.id === owner)) {

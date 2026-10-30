@@ -7,6 +7,17 @@ import { cityAt } from './map';
 import { RULES } from './rules';
 import type { CaptureChoice, CityState, CommandResult, GameState, PlayerId, TurnEvent, Unit, World } from './types';
 
+/**
+ * Whether a city held by `factionId` may build `unitTypeId`: the unit must be
+ * priced, and a faction's unique unit is built only by that faction, even in a
+ * captured city whose build list names it.
+ */
+export function canBuild(content: ContentPack, factionId: string, unitTypeId: string): boolean {
+  const type = content.units[unitTypeId];
+  if (!type || type.cost === undefined || type.buildTurns === undefined) return false;
+  return Object.values(content.factions).every((f) => f.uniqueUnit !== unitTypeId || f.id === factionId);
+}
+
 export function setProduction(
   state: GameState,
   content: ContentPack,
@@ -21,8 +32,8 @@ export function setProduction(
   if (city.owner !== playerId) return { error: 'You do not own that city' };
   let production: CityState['production'] = null;
   if (unitTypeId !== null) {
-    const type = content.units[unitTypeId];
-    if (!type || !site.builds.includes(unitTypeId) || type.cost === undefined || type.buildTurns === undefined) {
+    const factionId = state.players.find((p) => p.id === playerId)!.factionId;
+    if (!site.builds.includes(unitTypeId) || !canBuild(content, factionId, unitTypeId)) {
       return { error: `${site.name} cannot build that` };
     }
     // Picking the unit already in production keeps its progress.
@@ -57,7 +68,7 @@ export function captureAt(state: GameState, stackId: string, choose: boolean): {
     cities: { ...state.cities, [siteId]: taken(city.state, stack.owner) },
     pendingCaptures: choose ? [...others, { siteId, from: city.state.owner }] : others,
   };
-  const event: TurnEvent = { kind: 'captured', playerId: stack.owner, siteId, from: city.state.owner, stackId };
+  const event: TurnEvent = { kind: 'captured', playerId: stack.owner, siteId, from: city.state.owner, tier: city.state.tier, stackId };
   return { state: next, events: [event] };
 }
 

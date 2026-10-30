@@ -11,7 +11,7 @@ import { Game } from './controller';
 import { demoGame } from './demo';
 import { initialUi, type Input, MOVED, settle, type UiState } from './interaction';
 import { resultPanel } from './panels';
-import { leaderLine, netLabel, scoreboard, scoreLine } from './scoreboard';
+import { leaderLine, netLabel, type Scoreboard, scoreboard, scoreLine } from './scoreboard';
 import { loadStrings, signed } from './strings';
 import { buildSummary, summaryEventFor } from './summary';
 import { loadTheme } from './theme';
@@ -81,6 +81,27 @@ describe('city card', () => {
     expect(cityCard(viewFor(blocked, fantasy, 'p1'), fantasy, strings, 'site4').building!.status).toBe('Waiting: the stack in the city is full');
   });
 
+  it('places tied players together in the leader line', () => {
+    const view = { ...viewFor(demoGame(), fantasy, 'p1'), players: [
+      { id: 'p1', factionId: 'dwarves', eliminated: false },
+      { id: 'p2', factionId: 'orc-horde', eliminated: false },
+      { id: 'p3', factionId: 'elves', eliminated: false },
+    ] };
+    const entry = (playerId: string, factionId: string, score: number) => ({ playerId, factionId, label: '', score, share: 0, eliminated: false });
+    const board = { scores: [entry('p2', 'orc-horde', 60), entry('p3', 'elves', 45), entry('p1', 'dwarves', 45)] } as Scoreboard;
+    expect(leaderLine(board, view, fantasy)).toBe('Leading: the Orc Horde with 60. You are tied for second with 45.');
+    const behind = { scores: [entry('p2', 'orc-horde', 60), entry('p3', 'elves', 45), entry('p1', 'dwarves', 30)] } as Scoreboard;
+    expect(leaderLine(behind, view, fantasy)).toBe('Leading: the Orc Horde with 60. You are third with 30.');
+  });
+
+  it('leaves other factions\' unique units off a captured city\'s build list', () => {
+    const s = demoGame();
+    // The orcs hold Stonebridge, whose list includes the dwarves' Ironguard.
+    const taken: GameState = { ...s, cities: { ...s.cities, site4: { ...s.cities.site4!, owner: 'p2' } } };
+    const card = cityCard(viewFor(taken, fantasy, 'p2'), fantasy, strings, 'site4');
+    expect(card.options.map((o) => o.unitTypeId)).toEqual(['militia', 'archers', 'infantry', 'siege-engine']);
+  });
+
   it('spends next turn\'s gold city by city, in the order production runs', () => {
     // Kettle Ford (site3) comes before Stonebridge (site4) in map order. The dwarves net +1 a turn.
     const s = demoGame();
@@ -98,6 +119,10 @@ describe('city card', () => {
     expect(status(building(29), 'site3')).toBe('Ready on turn 2');
     expect(status(building(29), 'site4')).toBe('Waiting for gold: needs 15');
     expect(status(building(30), 'site4')).toBe('Ready on turn 2');
+    // The build list agrees with the status: Archers are unaffordable in Stonebridge at 29, affordable at 30.
+    const archers = (gold: number) =>
+      cityCard(viewFor(building(gold), fantasy, 'p1'), fantasy, strings, 'site4').options.find((o) => o.unitTypeId === 'archers')!.affordable;
+    expect([archers(29), archers(30)]).toEqual([false, true]);
     // A unit that finishes next turn is checked too, not only one already waiting.
     const broke: GameState = { ...building(0, 'militia'), cities: { ...building(0, 'militia').cities, site3: { ...s.cities.site3!, production: null } } };
     expect(status(broke, 'site4')).toBe('Waiting for gold: needs 8');
@@ -156,7 +181,7 @@ describe('turn summary', () => {
         ],
         attackerAdvanced: false,
       },
-      { kind: 'captured', playerId: 'p2', siteId: 'site3', from: 'p1', stackId: 's4' },
+      { kind: 'captured', playerId: 'p2', siteId: 'site3', from: 'p1', tier: 'village', stackId: 's4' },
       { kind: 'income', playerId: 'p1', income: 10, upkeep: 26, gold: 0 },
       { kind: 'unit-built', playerId: 'p1', siteId: 'site4', unitId: 'u99', unitTypeId: 'infantry', cost: 16 },
       { kind: 'deserted', playerId: 'p1', unitId: 'u5', unitTypeId: 'griffins' },
@@ -282,7 +307,7 @@ describe('cities and captures in play', () => {
       defenderRetreatTo: at(2, 5),
       attackerAdvanced: true,
     };
-    const captured: GameEvent = { kind: 'captured', playerId: 'p2', siteId: 'site5', from: 'p1', stackId: 's4' };
+    const captured: GameEvent = { kind: 'captured', playerId: 'p2', siteId: 'site5', from: 'p1', tier: 'city', stackId: 's4' };
     const ui = settle({ mode: { kind: 'attack', stackId: 's1', split: [], targetId: 's4', path: [], withdrawBelow: 0.3 }, message: null }, [report, captured], null, view);
     expect(ui.mode).toEqual({ kind: 'result', report, lostCities: ['site5'] });
     const ctx = { view, content: fantasy, strings, theme: loadTheme(themeJson, fantasy) };
@@ -301,16 +326,39 @@ describe('cities and captures in play', () => {
     const g = createGame({ seed: 1, map, players, stacks: [] }, fantasy);
     const state: GameState = { ...g, cities: { ...g.cities, c0: { ...g.cities.c0!, owner: null, razed: true } } };
     const events: GameEvent[] = [
-      { kind: 'captured', playerId: 'p2', siteId: 'c0', from: 'p1', stackId: 's1' },
+      { kind: 'captured', playerId: 'p2', siteId: 'c0', from: 'p1', tier: 'city', stackId: 's1' },
       { kind: 'capture-resolved', playerId: 'p2', siteId: 'c0', from: 'p1', choice: 'occupy', gold: 0 },
-      { kind: 'captured', playerId: 'p3', siteId: 'c0', from: 'p2', stackId: 's2' },
+      { kind: 'captured', playerId: 'p3', siteId: 'c0', from: 'p2', tier: 'city', stackId: 's2' },
       { kind: 'capture-resolved', playerId: 'p3', siteId: 'c0', from: 'p2', choice: 'raze', gold: 0 },
     ];
     const kept = events.filter((e) => summaryEventFor(e, 'p1'));
     expect(kept).toEqual(events.slice(0, 2));
     const summary = buildSummary(viewFor(state, fantasy, 'p1'), fantasy, strings, kept);
-    expect(summary.items).toEqual([{ tone: 'danger', title: 'The Orc Horde took Ashford', detail: 'City lost.' }]);
+    expect(summary.items).toEqual([{ tone: 'danger', title: 'The Orc Horde took Ashford', detail: 'City lost · income −10 a turn' }]);
     // Even given every event, the elves' razing is not pinned on the orcs.
-    expect(buildSummary(viewFor(state, fantasy, 'p1'), fantasy, strings, events).items[0]!.detail).toBe('City lost.');
+    expect(buildSummary(viewFor(state, fantasy, 'p1'), fantasy, strings, events).items[0]!.detail).toBe('City lost · income −10 a turn');
+  });
+
+  it('words a lost city from how it was taken, and reports a city taken back in the same round once', () => {
+    const view = viewFor(demoGame(), fantasy, 'p1');
+    // The orcs take Stonebridge (a city) and pillage it; it is a village now.
+    const pillaged: GameEvent[] = [
+      { kind: 'captured', playerId: 'p2', siteId: 'site4', from: 'p1', tier: 'city', stackId: 's4' },
+      { kind: 'capture-resolved', playerId: 'p2', siteId: 'site4', from: 'p1', choice: 'pillage', gold: 30 },
+    ];
+    expect(buildSummary(view, fantasy, strings, pillaged).items[0]).toEqual({
+      tone: 'danger',
+      title: 'The Orc Horde took Stonebridge',
+      detail: 'They pillaged it; it is now a village.',
+    });
+    // The orcs take Kettle Ford, then a dwarf stack falls back into it and takes it back.
+    const retaken: GameEvent[] = [
+      { kind: 'captured', playerId: 'p2', siteId: 'site3', from: 'p1', tier: 'village', stackId: 's4' },
+      { kind: 'capture-resolved', playerId: 'p2', siteId: 'site3', from: 'p1', choice: 'occupy', gold: 0 },
+      { kind: 'captured', playerId: 'p1', siteId: 'site3', from: 'p2', tier: 'village', stackId: 's2' },
+    ];
+    expect(buildSummary(view, fantasy, strings, retaken).items).toEqual([
+      { tone: 'good', title: 'The Orc Horde took Kettle Ford', detail: 'Your stack fell back into it and took it back.' },
+    ]);
   });
 });

@@ -314,6 +314,8 @@ Priced with the same formula as the shared roster: 2 × Strength × Hits, plus +
 | Horse Archers | Horse Clans | 3 | 2 | 12 | 18 | 1 (2 before the trait) | 2 | Mounted; strike twice when pursuing |
 | Trolls | Orc Horde | 5 | 3 | 8 | 38 | 2 | 5 | Heal 1 hit per turn even while moving |
 
+A unique unit is built only by its own faction, in cities whose build list names it. A city captured by another faction keeps its build list but cannot produce that unit, and its build list hides it.
+
 Horse Archers are weaker than Cavalry in a straight fight and cheaper; their job is punishing retreats. Their two pursuit strikes resolve one at a time against the weakest surviving withdrawing unit, so the second strike can finish a unit the first one wounded.
 
 A faction trait applies to every unit of that faction, including heroes, griffins, and allies from ruins, unless the trait names which units it covers: the Horse Clans' faster build and plains bonus apply only to mounted units, and the Orc discount only to militia and infantry. So a dwarf hero crosses mountains with the Ironguard, and a dwarf hero's ally doesn't strand him at a mountain.

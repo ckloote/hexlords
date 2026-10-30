@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fantasy } from '../content/fantasy';
-import { captureAt, productionBlocker } from './cities';
+import { canBuild, captureAt, productionBlocker } from './cities';
 import { applyCommand, createGame, type GameSetup, replay } from './engine';
 import { asciiMap, at } from './test-fixtures';
 import type { Command, CommandResult, GameState } from './types';
@@ -39,6 +39,21 @@ function ok(result: CommandResult): GameState {
 
 const end = (playerId: string): Command => ({ type: 'EndTurn', playerId });
 const build = (siteId: string, unitTypeId: string | null, playerId = 'p1'): Command => ({ type: 'SetProduction', playerId, siteId, unitTypeId });
+
+describe('unique units', () => {
+  it('only their own faction builds them, even in a city whose list names them', () => {
+    expect(canBuild(fantasy, 'dwarves', 'ironguard')).toBe(true);
+    expect(canBuild(fantasy, 'orc-horde', 'ironguard')).toBe(false);
+    expect(canBuild(fantasy, 'orc-horde', 'infantry')).toBe(true);
+    expect(canBuild(fantasy, 'dwarves', 'hero')).toBe(false); // never built
+    // An orc-held city with a dwarf build list.
+    const map = asciiMap(['....'], [{ at: at(0, 0), tier: 'city', owner: 'p2', builds: ['militia', 'ironguard'] }, { at: at(3, 0), tier: 'city', owner: 'p1' }]);
+    const g = createGame({ seed: 1, map, players: [{ id: 'p1', factionId: 'dwarves' }, { id: 'p2', factionId: 'orc-horde' }], stacks: [] }, fantasy);
+    const orcsTurn = ok(applyCommand(g, end('p1'), fantasy));
+    expect(applyCommand(orcsTurn, build('c0', 'ironguard', 'p2'), fantasy)).toEqual({ error: 'City 0 cannot build that' });
+    expect(ok(applyCommand(orcsTurn, build('c0', 'militia', 'p2'), fantasy)).cities.c0!.production).toEqual({ unitTypeId: 'militia', progress: 0 });
+  });
+});
 
 describe('SetProduction', () => {
   const s = game([{ owner: 'p1', pos: at(1, 1), units: ['infantry'] }]);
@@ -136,7 +151,7 @@ describe('capture', () => {
   it('takes a city a move ends on and waits for the choice', () => {
     const r = applyCommand(s, intoVillage, fantasy);
     if ('error' in r) throw new Error(r.error);
-    expect(r.events).toContainEqual({ kind: 'captured', playerId: 'p1', siteId: 'c2', from: null, stackId: 's1' });
+    expect(r.events).toContainEqual({ kind: 'captured', playerId: 'p1', siteId: 'c2', from: null, tier: 'village', stackId: 's1' });
     expect(r.state.cities.c2).toMatchObject({ owner: 'p1', secured: false, held: false });
     expect(r.state.pendingCaptures).toEqual([{ siteId: 'c2', from: null }]);
     expect(applyCommand(r.state, end('p1'), fantasy)).toEqual({ error: 'Choose what to do with the captured cities first' });
@@ -191,7 +206,7 @@ describe('capture', () => {
     const r = captureAt(moved, 's3', false);
     expect(r.state.cities.c1).toMatchObject({ owner: 'p2', secured: false });
     expect(r.state.pendingCaptures).toEqual([]);
-    expect(r.events).toEqual([{ kind: 'captured', playerId: 'p2', siteId: 'c1', from: 'p1', stackId: 's3' }]);
+    expect(r.events).toEqual([{ kind: 'captured', playerId: 'p2', siteId: 'c1', from: 'p1', tier: 'city', stackId: 's3' }]);
   });
 
   it('a pending capture the enemy retakes by falling back into it drops off, and cannot be pillaged', () => {
@@ -226,7 +241,7 @@ describe('capture', () => {
     const r = applyCommand(g, { type: 'Attack', playerId: 'p1', stackId: 's1', targetStackId: 's2' }, fantasy);
     if ('error' in r) throw new Error(r.error);
     expect(r.events[0]).toMatchObject({ kind: 'battle', outcome: 'win', attackerAdvanced: true, attackerOwner: 'p1', defenderOwner: 'p2' });
-    expect(r.events[1]).toEqual({ kind: 'captured', playerId: 'p1', siteId: 'c1', from: 'p2', stackId: 's1' });
+    expect(r.events[1]).toEqual({ kind: 'captured', playerId: 'p1', siteId: 'c1', from: 'p2', tier: 'city', stackId: 's1' });
     expect(r.state.pendingCaptures).toEqual([{ siteId: 'c1', from: 'p2' }]);
   });
 });

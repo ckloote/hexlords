@@ -1,7 +1,7 @@
 // The city panel's model: tier, walls, income, what it is building and when it
 // will be ready, the build list, and the garrison. Reads only the player's view.
 
-import { productionBlocker } from '../engine/cities';
+import { canBuild, productionBlocker } from '../engine/cities';
 import type { ContentPack, UnitType } from '../engine/content';
 import { cityIncome, incomeOf, upkeepOf } from '../engine/economy';
 import { hexKey, sameHex } from '../engine/hex';
@@ -78,8 +78,10 @@ export function cityCard(view: PlayerView, content: ContentPack, strings: String
     : [strings.tiers[city.tier], defense ? `walls +${defense}%` : 'no walls', `${cityIncome(city.tier)} gold a turn`].join(' · ');
   const holding = city.razed || city.owner === null ? '' : city.secured ? 'Secured' : 'Not yet secured: counts toward victory after a full round';
 
-  // Production runs after next turn's income and upkeep, so judge gold against that treasury.
+  // Production runs after next turn's income and upkeep, and earlier cities in map order pay first,
+  // so this city's status and its build list both use the gold left when production reaches it.
   const nextGold = Math.max(0, view.gold + incomeOf(view, view.viewer) - upkeepOf(view, content, view.viewer));
+  const gold = goldWhenReached(view, content, siteId, nextGold);
 
   let building: CityCard['building'] = null;
   if (mine && city.production) {
@@ -89,7 +91,7 @@ export function cityCard(view: PlayerView, content: ContentPack, strings: String
     const cost = type.cost ?? 0;
     // A unit that finishes at the next turn start leaves then unless something blocks it.
     const finishing = progress + 1 >= turns;
-    const blocker = finishing ? productionBlocker(view, site.pos, view.viewer, cost, goldWhenReached(view, content, siteId, nextGold)) : null;
+    const blocker = finishing ? productionBlocker(view, site.pos, view.viewer, cost, gold) : null;
     const status =
       blocker === 'full' ? 'Waiting: the stack in the city is full'
       : blocker === 'gold' ? `Waiting for gold: needs ${cost}`
@@ -97,8 +99,10 @@ export function cityCard(view: PlayerView, content: ContentPack, strings: String
     building = { name: type.name, progress, turns, status };
   }
 
+  // Another faction's unique unit stays off the list, even in a city captured from them.
+  const factionId = view.players.find((p) => p.id === view.viewer)!.factionId;
   const options: BuildOption[] = mine
-    ? site.builds.map((id) => {
+    ? site.builds.filter((id) => canBuild(content, factionId, id)).map((id) => {
         const type = content.units[id]!;
         return {
           unitTypeId: id,
@@ -108,7 +112,7 @@ export function cityCard(view: PlayerView, content: ContentPack, strings: String
           turns: type.buildTurns ?? 1,
           upkeep: type.upkeep ?? 0,
           current: city.production?.unitTypeId === id,
-          affordable: nextGold >= (type.cost ?? 0),
+          affordable: gold >= (type.cost ?? 0),
         };
       })
     : [];

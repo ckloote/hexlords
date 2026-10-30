@@ -84,12 +84,18 @@ export function leaderLine(board: Scoreboard, view: PlayerView, content: Content
   const tied = ranked.filter((s) => s.score === top.score);
   const nameOf = (s: ScoreEntry) => content.factions[s.factionId]!.name;
   const ordinal = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'];
-  const me = ranked.findIndex((s) => s.playerId === view.viewer);
+  const mine = ranked.find((s) => s.playerId === view.viewer);
   if (tied.length > 1) {
     const meTied = tied.some((s) => s.playerId === view.viewer);
     return meTied ? `You share the lead with ${top.score}.` : `Tied for the lead at ${top.score}: the ${tied.map(nameOf).join(' and the ')}.`;
   }
   if (top.playerId === view.viewer) return `You lead with ${top.score}.`;
-  const mine = me >= 0 ? ` You are ${ordinal[me] ?? `number ${me + 1}`} with ${ranked[me]!.score}.` : '';
-  return `Leading: the ${nameOf(top)} with ${top.score}.${mine}`;
+  let where = '';
+  if (mine) {
+    // Placed by how many score more, so equal scores share a place.
+    const place = ranked.filter((s) => s.score > mine.score).length;
+    const tiedWith = ranked.some((s) => s.score === mine.score && s.playerId !== mine.playerId);
+    where = ` You are ${tiedWith ? 'tied for ' : ''}${ordinal[place] ?? `number ${place + 1}`} with ${mine.score}.`;
+  }
+  return `Leading: the ${nameOf(top)} with ${top.score}.${where}`;
 }
