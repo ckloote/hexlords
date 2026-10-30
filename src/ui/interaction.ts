@@ -216,13 +216,11 @@ function react(view: PlayerView, content: ContentPack, state: UiState, input: In
   if (mode.kind === 'summary') {
     return input.kind === 'continue' ? { ui: ui({ kind: 'idle' }), commands: continueRoutes(view, content) } : none(state);
   }
-  // A captured city must be dealt with first; the battle result may show before it.
-  if (view.pendingCapture && mode.kind !== 'result') {
-    const { siteId } = view.pendingCapture;
-    if (input.kind === 'capture') {
-      return { ui: state, commands: [{ type: 'ResolveCapture', playerId: view.viewer, siteId, choice: input.choice }] };
-    }
-    return none(ui({ kind: 'capture', siteId }));
+  const pending = view.pendingCaptures;
+  // The capture card is modal: the city's fate comes first.
+  if (mode.kind === 'capture' && pending.some((p) => p.siteId === mode.siteId)) {
+    if (input.kind !== 'capture') return none(state);
+    return { ui: state, commands: [{ type: 'ResolveCapture', playerId: view.viewer, siteId: mode.siteId, choice: input.choice }] };
   }
   switch (input.kind) {
     case 'tap':
@@ -234,7 +232,7 @@ function react(view: PlayerView, content: ContentPack, state: UiState, input: In
       return none(ui({ kind: 'idle' }));
     case 'continue':
       if (mode.kind === 'result') {
-        if (view.pendingCapture) return none(ui({ kind: 'capture', siteId: view.pendingCapture.siteId }));
+        if (pending.length) return none(ui({ kind: 'capture', siteId: pending[0]!.siteId }));
         const id = mode.report.attackerStackId;
         return none(view.stacks[id] ? select(id) : ui({ kind: 'idle' }));
       }
@@ -283,6 +281,9 @@ function react(view: PlayerView, content: ContentPack, state: UiState, input: In
     case 'capture':
       return none(state);
     case 'endTurn': {
+      if (pending.length) {
+        return none(ui({ kind: 'capture', siteId: pending[0]!.siteId }, 'Decide what to do with the cities you took before ending the turn.'));
+      }
       const idle = idleCities(view);
       if (idle.length && !state.endWarned) {
         const list = idle.length === 1 ? `${idle[0]} has` : `${idle.slice(0, -1).join(', ')} and ${idle[idle.length - 1]} have`;
@@ -298,8 +299,14 @@ export function settle(step: UiState, events: GameEvent[], error: string | null,
   const mode = step.mode;
   if (mode.kind === 'handoff' || mode.kind === 'summary') return step;
   const battle = events.find((e): e is BattleReport => e.kind === 'battle');
+  // The battle result shows first; Continue then opens any capture card.
   if (battle) return ui({ kind: 'result', report: battle }, error);
-  if (view.pendingCapture) return ui({ kind: 'capture', siteId: view.pendingCapture.siteId }, error);
+  const nextCapture = view.pendingCaptures[0];
+  const moves = events.filter((e) => e.kind === 'moved');
+  const routesNote =
+    mode.kind === 'idle' && moves.length
+      ? `${moves.length} stack${moves.length === 1 ? '' : 's'} continued along ${moves.length === 1 ? 'its route' : 'their routes'}.`
+      : null;
   const resolved = events.find((e) => e.kind === 'capture-resolved');
   if (resolved && resolved.kind === 'capture-resolved') {
     const site = view.map.sites.find((s) => s.id === resolved.siteId)!;
@@ -307,19 +314,18 @@ export function settle(step: UiState, events: GameEvent[], error: string | null,
       resolved.choice === 'occupy' ? `${site.name} is yours.`
       : resolved.choice === 'raze' || view.cities[site.id]!.razed ? `${site.name} lies in ruins${resolved.gold ? `; you took ${resolved.gold} gold` : ''}.`
       : `You pillaged ${site.name} for ${resolved.gold} gold.`;
+    if (nextCapture) return ui({ kind: 'capture', siteId: nextCapture.siteId }, note);
     const there = Object.values(view.stacks).find((s) => s.owner === view.viewer && sameHex(s.pos, site.pos));
     return there ? ui({ kind: 'selected', stackId: there.id, split: [] }, note) : ui({ kind: 'idle' }, note);
   }
+  if (nextCapture) return ui({ kind: 'capture', siteId: nextCapture.siteId }, error ?? routesNote);
   if (error) {
     const stackId = 'stackId' in mode ? mode.stackId : null;
     const moved = [...events].reverse().find((e) => e.kind === 'moved');
     const id = moved && moved.kind === 'moved' ? (moved.mergedInto ?? moved.stackId) : stackId;
     return id && view.stacks[id] ? ui({ kind: 'selected', stackId: id, split: [] }, error) : ui({ kind: 'idle' }, error);
   }
-  const moves = events.filter((e) => e.kind === 'moved');
-  if (mode.kind === 'idle' && moves.length) {
-    return ui({ kind: 'idle' }, `${moves.length} stack${moves.length === 1 ? '' : 's'} continued along ${moves.length === 1 ? 'its route' : 'their routes'}.`);
-  }
+  if (routesNote) return ui({ kind: 'idle' }, routesNote);
   const last = moves[moves.length - 1];
   if (last && last.kind === 'moved') {
     const id = last.mergedInto ?? last.stackId;

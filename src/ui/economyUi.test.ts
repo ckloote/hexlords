@@ -7,7 +7,7 @@ import { viewFor } from '../engine/vision';
 import { cityCard, countNames } from './cityCard';
 import { Game } from './controller';
 import { demoGame } from './demo';
-import { initialUi, type Input, type UiState } from './interaction';
+import { initialUi, type Input, MOVED, type UiState } from './interaction';
 import { leaderLine, netLabel, scoreboard, scoreLine } from './scoreboard';
 import { loadStrings } from './strings';
 import { buildSummary } from './summary';
@@ -148,5 +148,43 @@ describe('cities and captures in play', () => {
     expect(ui.mode).toMatchObject({ kind: 'selected', stackId: 's2' });
     expect(game.state.gold.p1).toBe(65);
     expect(game.state.cities.site2!.razed).toBe(true);
+  });
+
+  it('continues every saved route at turn start, then asks about a city one of them took', () => {
+    const s = demoGame();
+    // The host stands next to neutral Ashvale with it as its destination; the griffins head south.
+    const state: GameState = {
+      ...s,
+      stacks: {
+        ...s.stacks,
+        s1: { ...s.stacks.s1!, pos: at(3, 5), destination: at(2, 5) },
+        s2: { ...s.stacks.s2!, destination: at(4, 15) },
+      },
+    };
+    const game = new Game(state, fantasy);
+    const ui = play(game, [{ kind: 'continue' }], { mode: { kind: 'summary', events: [] }, message: null });
+    expect(game.state.stacks.s1!.pos).toEqual(at(2, 5));
+    expect(game.state.stacks.s2!.pos).not.toEqual(at(4, 12)); // the second route ran too
+    expect(ui).toEqual({ mode: { kind: 'capture', siteId: 'site5' }, message: '2 stacks continued along their routes.' });
+  });
+
+  it('a queued attack staged from an empty enemy city still attacks; the capture card follows the result', () => {
+    const s = demoGame();
+    // Griffins west of the orcs' empty Hollow Pine, the orc patrol east of it.
+    const state: GameState = {
+      ...s,
+      stacks: { ...s.stacks, s2: { ...s.stacks.s2!, pos: at(11, 4) }, s4: { ...s.stacks.s4!, pos: at(13, 4) } },
+    };
+    const game = new Game(state, fantasy);
+    const run = game.run([
+      { type: 'Move', playerId: 'p1', stackId: 's2', path: [HOLLOW_PINE] },
+      { type: 'Attack', playerId: 'p1', stackId: MOVED, targetStackId: 's4' },
+    ]);
+    expect(run.error).toBeNull();
+    const battle = run.events.find((e) => e.kind === 'battle');
+    expect(run.events.find((e) => e.kind === 'captured')).toMatchObject({ siteId: 'site2', from: 'p2' });
+    if (!battle || battle.kind !== 'battle') throw new Error('no battle');
+    const ui = play(game, [{ kind: 'continue' }], { mode: { kind: 'result', report: battle }, message: null });
+    expect(ui.mode).toEqual({ kind: 'capture', siteId: 'site2' });
   });
 });

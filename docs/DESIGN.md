@@ -269,7 +269,7 @@ The battle math shows that combat value equals Strength × Hits. A Strength-8 un
 
 - A stack takes a city when a move ends on it, or when it advances into it after winning a battle, if the city belongs to someone else or to nobody. Passing through an empty city without stopping does not take it.
 - Neutral cities start empty, so walking in takes them. Neutral garrisons may come with the map generator.
-- The player must choose Occupy, Pillage, or Raze before doing anything else, including ending the turn.
+- The player must choose Occupy, Pillage, or Raze for every city taken before ending the turn. Captures queue up, so play goes on in the meantime: continued routes all run, and an attack staged from a city just taken still happens. The choices are then asked one city at a time, after any battle result.
 - Pillage pays 3 turns of the city's income at its current tier, then drops it one tier. Pillaging a village razes it. (The Orc Horde's double pillage arrives with the faction traits.)
 - A razed city is rubble: no owner, income, defense, vision, or production, and nobody can take it again. It leaves the map's total income, so the domination target shrinks; a pillaged city counts at its new tier.
 - Taking a city stops its production and restarts its hold: it is not secured until its new owner has held it for a full round.

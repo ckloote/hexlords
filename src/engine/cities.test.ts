@@ -123,14 +123,31 @@ describe('capture', () => {
     if ('error' in r) throw new Error(r.error);
     expect(r.events).toContainEqual({ kind: 'captured', playerId: 'p1', siteId: 'c2', from: null, stackId: 's1' });
     expect(r.state.cities.c2).toMatchObject({ owner: 'p1', secured: false, heldSince: null });
-    expect(r.state.pendingCapture).toEqual({ siteId: 'c2', stackId: 's1' });
-    expect(applyCommand(r.state, end('p1'), fantasy)).toEqual({ error: 'Choose what to do with the captured city first' });
+    expect(r.state.pendingCaptures).toEqual([{ siteId: 'c2', stackId: 's1' }]);
+    expect(applyCommand(r.state, end('p1'), fantasy)).toEqual({ error: 'Choose what to do with the captured cities first' });
     expect(applyCommand(r.state, resolve('c0', 'occupy'), fantasy)).toMatchObject({ error: expect.any(String) });
+  });
+
+  it('queues several captures; play goes on, and the turn ends once each is resolved', () => {
+    const t = replay(s, [intoVillage, intoCapital], fantasy);
+    expect(t.pendingCaptures).toEqual([
+      { siteId: 'c2', stackId: 's1' },
+      { siteId: 'c3', stackId: 's2' },
+    ]);
+    // Other commands still run while captures wait.
+    const moved = ok(applyCommand(t, { type: 'Move', playerId: 'p1', stackId: 's1', path: [at(3, 3)] }, fantasy));
+    const one = ok(applyCommand(moved, resolve('c3', 'pillage'), fantasy));
+    expect(one.pendingCaptures).toEqual([{ siteId: 'c2', stackId: 's1' }]);
+    expect(applyCommand(one, end('p1'), fantasy)).toEqual({ error: 'Choose what to do with the captured cities first' });
+    const both = ok(applyCommand(one, resolve('c2', 'occupy'), fantasy));
+    expect(both.pendingCaptures).toEqual([]);
+    expect(both.cities.c2!.owner).toBe('p1'); // the stack left, but the city stays taken
+    expect(ok(applyCommand(both, end('p1'), fantasy)).currentPlayer).toBe(1);
   });
 
   it('occupies: keeps the city and its income', () => {
     const t = replay(s, [intoVillage, resolve('c2', 'occupy')], fantasy);
-    expect(t.pendingCapture).toBeUndefined();
+    expect(t.pendingCaptures).toEqual([]);
     expect(t.cities.c2).toMatchObject({ owner: 'p1', tier: 'village', razed: false });
     expect(t.gold.p1).toBe(50);
   });
@@ -151,14 +168,14 @@ describe('capture', () => {
       error: 'That city has been razed',
     });
     const back = ok(applyCommand(t, { type: 'Move', playerId: 'p1', stackId: 's2', path: [at(4, 0), at(5, 0)] }, fantasy));
-    expect(back.pendingCapture).toBeUndefined();
+    expect(back.pendingCaptures).toEqual([]);
   });
 
   it('a stack that falls back into an empty city occupies it without a choice', () => {
     const moved = { ...s, stacks: { ...s.stacks, s3: { ...s.stacks.s3!, pos: at(7, 4) } }, cities: { ...s.cities, c1: { ...s.cities.c1!, owner: 'p1' } } };
     const r = captureAt(moved, 's3', at(7, 4), false);
     expect(r.state.cities.c1).toMatchObject({ owner: 'p2', secured: false });
-    expect(r.state.pendingCapture).toBeUndefined();
+    expect(r.state.pendingCaptures).toEqual([]);
     expect(r.events).toEqual([{ kind: 'captured', playerId: 'p2', siteId: 'c1', from: 'p1', stackId: 's3' }]);
   });
 
@@ -171,6 +188,6 @@ describe('capture', () => {
     if ('error' in r) throw new Error(r.error);
     expect(r.events[0]).toMatchObject({ kind: 'battle', outcome: 'win', attackerAdvanced: true, attackerOwner: 'p1', defenderOwner: 'p2' });
     expect(r.events[1]).toEqual({ kind: 'captured', playerId: 'p1', siteId: 'c1', from: 'p2', stackId: 's1' });
-    expect(r.state.pendingCapture).toEqual({ siteId: 'c1', stackId: 's1' });
+    expect(r.state.pendingCaptures).toEqual([{ siteId: 'c1', stackId: 's1' }]);
   });
 });

@@ -52,6 +52,7 @@ export function createGame(setup: GameSetup, content: ContentPack): GameState {
     nextId: 1,
     nextUnitId: 1,
     gold: {},
+    pendingCaptures: [],
   };
   if (state.players.length === 0) throw new Error('A game needs players');
   for (const p of state.players) state.gold[p.id] = setup.startingGold ?? RULES.startingGold;
@@ -101,8 +102,8 @@ export function applyCommand(state: GameState, command: Command, content: Conten
   const player = state.players[state.currentPlayer];
   if (state.winner) return { error: 'The game is over' };
   if (!player || command.playerId !== player.id) return { error: `It is not ${command.playerId}'s turn` };
-  if (state.pendingCapture && command.type !== 'ResolveCapture') {
-    return { error: 'Choose what to do with the captured city first' };
+  if (state.pendingCaptures.length > 0 && command.type === 'EndTurn') {
+    return { error: 'Choose what to do with the captured cities first' };
   }
 
   switch (command.type) {

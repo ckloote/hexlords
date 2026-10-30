@@ -38,9 +38,10 @@ function taken(city: CityState, owner: PlayerId): CityState {
 
 /**
  * Takes the city on `hex` for the owner of `stackId` if it is a standing city
- * someone else holds (or nobody does). With `choose`, the current player must
- * then resolve the capture before anything else; without it (a defender
- * falling back into an empty city during the enemy's turn) the city is simply occupied.
+ * someone else holds (or nobody does). With `choose`, the capture joins the
+ * current player's pending captures, to resolve before ending the turn;
+ * without it (a defender falling back into an empty city during the enemy's
+ * turn) the city is simply occupied.
  */
 export function captureAt(
   state: GameState,
@@ -54,14 +55,13 @@ export function captureAt(
     return { state, events: [] };
   }
   const next: GameState = { ...state, cities: { ...state.cities, [city.site.id]: taken(city.state, stack.owner) } };
-  if (choose) next.pendingCapture = { siteId: city.site.id, stackId };
+  if (choose) next.pendingCaptures = [...state.pendingCaptures, { siteId: city.site.id, stackId }];
   const event: TurnEvent = { kind: 'captured', playerId: stack.owner, siteId: city.site.id, from: city.state.owner, stackId };
   return { state: next, events: [event] };
 }
 
 export function resolveCapture(state: GameState, playerId: PlayerId, siteId: string, choice: CaptureChoice): CommandResult {
-  const pending = state.pendingCapture;
-  if (!pending || pending.siteId !== siteId) return { error: 'There is no capture to resolve there' };
+  if (!state.pendingCaptures.some((p) => p.siteId === siteId)) return { error: 'There is no capture to resolve there' };
   if (!['occupy', 'pillage', 'raze'].includes(choice)) return { error: 'Unknown capture choice' };
   const city = state.cities[siteId]!;
   let next: CityState = city;
@@ -78,8 +78,8 @@ export function resolveCapture(state: GameState, playerId: PlayerId, siteId: str
     ...state,
     cities: { ...state.cities, [siteId]: next },
     gold: { ...state.gold, [playerId]: (state.gold[playerId] ?? 0) + gold },
+    pendingCaptures: state.pendingCaptures.filter((p) => p.siteId !== siteId),
   };
-  delete s.pendingCapture;
   return { state: s, events: [{ kind: 'capture-resolved', playerId, siteId, choice, gold }] };
 }
 
