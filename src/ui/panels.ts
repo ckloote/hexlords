@@ -162,7 +162,7 @@ export function attackPanel(ctx: PanelContext, mode: Extract<Mode, { kind: 'atta
     ${actions}`;
 }
 
-export function resultPanel(ctx: PanelContext, report: BattleReport): string {
+export function resultPanel(ctx: PanelContext, report: BattleReport, lostCities: readonly string[] = []): string {
   const { strings } = ctx;
   const lost = { attacker: 0, defender: 0 };
   for (const e of report.events) {
@@ -183,6 +183,10 @@ export function resultPanel(ctx: PanelContext, report: BattleReport): string {
     }
   }
   if (report.defenderRetreatTo) lines.push('The defenders fell back to a hex behind them.');
+  for (const id of lostCities) {
+    const name = ctx.view.map.sites.find((s) => s.id === id)?.name ?? id;
+    lines.push(`They fell back into ${name} and took it.`);
+  }
   if (report.attackerAdvanced) lines.push('Your stack moved into the hex.');
   else if (good) lines.push('Your stack could not enter the hex and stays where it was.');
   return `<div class="title ${good ? 'good' : 'danger'}">${esc(strings.outcomes[report.outcome])}</div>

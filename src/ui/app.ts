@@ -118,7 +118,7 @@ export async function startApp(root: HTMLElement, buildStamp: string): Promise<v
       mode.kind === 'selected' ? stackPanel(ctx, mode)
       : mode.kind === 'move' ? movePanel(ctx, mode)
       : mode.kind === 'attack' ? attackPanel(ctx, mode)
-      : mode.kind === 'result' ? resultPanel(ctx, mode.report)
+      : mode.kind === 'result' ? resultPanel(ctx, mode.report, mode.lostCities)
       : mode.kind === 'city' ? cityPanel(ctx, cityCard(view, fantasy, strings, mode.siteId))
       : mode.kind === 'capture' ? capturePanel(ctx, mode.siteId)
       : idlePanel();

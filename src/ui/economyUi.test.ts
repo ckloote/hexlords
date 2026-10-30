@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { fantasy } from '../content/fantasy';
 import stringsJson from '../content/fantasy/strings.json';
+import themeJson from '../content/fantasy/theme.json';
 import { at } from '../engine/test-fixtures';
-import type { GameEvent, GameState } from '../engine/types';
+import type { BattleReport, GameEvent, GameState } from '../engine/types';
 import { viewFor } from '../engine/vision';
 import { cityCard, countNames } from './cityCard';
 import { Game } from './controller';
 import { demoGame } from './demo';
-import { initialUi, type Input, MOVED, type UiState } from './interaction';
+import { initialUi, type Input, MOVED, settle, type UiState } from './interaction';
+import { resultPanel } from './panels';
 import { leaderLine, netLabel, scoreboard, scoreLine } from './scoreboard';
 import { loadStrings, signed } from './strings';
 import { buildSummary } from './summary';
+import { loadTheme } from './theme';
 
 // Demo game: the dwarves (p1) hold Stonebridge (site4, city) and Kettle Ford
 // (site3, village); the orcs (p2) hold Gravelmaw (site1, city) and Hollow Pine
@@ -75,6 +78,22 @@ describe('city card', () => {
     // Another player's stack in the city blocks it, as the engine rules.
     const blocked: GameState = { ...flush, stacks: { ...flush.stacks, s3: { ...flush.stacks.s3!, pos: at(6, 14) } } };
     expect(cityCard(viewFor(blocked, fantasy, 'p1'), fantasy, strings, 'site4').building!.status).toBe('Waiting: the stack in the city is full');
+  });
+
+  it('judges gold against next turn\'s treasury, after income and upkeep', () => {
+    // The dwarves make 15 and pay 14 a turn; a finished Infantry costs 16.
+    const s = demoGame();
+    const withGold = (gold: number): GameState => ({
+      ...s,
+      gold: { ...s.gold, p1: gold },
+      cities: { ...s.cities, site4: { ...s.cities.site4!, production: { unitTypeId: 'infantry', progress: 1 } } },
+    });
+    const short = cityCard(viewFor(withGold(14), fantasy, 'p1'), fantasy, strings, 'site4');
+    expect(short.building!.status).toBe('Waiting for gold: needs 16'); // 14 + 1 = 15
+    expect(short.options.find((o) => o.unitTypeId === 'infantry')!.affordable).toBe(false);
+    const enough = cityCard(viewFor(withGold(15), fantasy, 'p1'), fantasy, strings, 'site4');
+    expect(enough.building!.status).toBe('Ready on turn 2'); // 15 + 1 = 16, though only 15 in hand now
+    expect(enough.options.find((o) => o.unitTypeId === 'infantry')!.affordable).toBe(true);
   });
 
   it('shows other cities without their production', () => {
@@ -202,7 +221,7 @@ describe('cities and captures in play', () => {
     const battle = run.events.find((e) => e.kind === 'battle');
     expect(run.events.find((e) => e.kind === 'captured')).toMatchObject({ siteId: 'site2', from: 'p2' });
     if (!battle || battle.kind !== 'battle') throw new Error('no battle');
-    const ui = play(game, [{ kind: 'continue' }], { mode: { kind: 'result', report: battle }, message: null });
+    const ui = play(game, [{ kind: 'continue' }], { mode: { kind: 'result', report: battle, lostCities: [] }, message: null });
     expect(ui.mode).toEqual({ kind: 'capture', siteId: 'site2' });
   });
 
@@ -222,5 +241,29 @@ describe('cities and captures in play', () => {
     expect(kinds).not.toContain('moved');
     expect(kinds).toContain('income');
     expect(ui.mode.events.every((e) => !('playerId' in e) || e.playerId === 'p1')).toBe(true);
+  });
+
+  it('the battle result says when the defenders fell back into your empty city and took it', () => {
+    const view = viewFor(demoGame(), fantasy, 'p1');
+    const report: BattleReport = {
+      kind: 'battle',
+      attackerOwner: 'p1',
+      defenderOwner: 'p2',
+      attackerStackId: 's1',
+      defenderStackId: 's4',
+      attackerUnitIds: ['u1'],
+      defenderUnitIds: ['u9'],
+      modifiers: [],
+      outcome: 'defender-withdraw',
+      events: [],
+      defenderRetreatTo: at(2, 5),
+      attackerAdvanced: true,
+    };
+    const captured: GameEvent = { kind: 'captured', playerId: 'p2', siteId: 'site5', from: 'p1', stackId: 's4' };
+    const ui = settle({ mode: { kind: 'attack', stackId: 's1', split: [], targetId: 's4', path: [], withdrawBelow: 0.3 }, message: null }, [report, captured], null, view);
+    expect(ui.mode).toEqual({ kind: 'result', report, lostCities: ['site5'] });
+    const ctx = { view, content: fantasy, strings, theme: loadTheme(themeJson, fantasy) };
+    expect(resultPanel(ctx, report, ['site5'])).toContain('They fell back into Ashvale and took it.');
+    expect(resultPanel(ctx, report)).not.toContain('took it');
   });
 });

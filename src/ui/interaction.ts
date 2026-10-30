@@ -23,7 +23,8 @@ export type Mode =
   | { kind: 'move'; stackId: string; split: string[]; goal: Hex; steps: PathStep[] }
   /** `path`: this turn's steps to the hex the attack starts from; empty when adjacent. */
   | { kind: 'attack'; stackId: string; split: string[]; targetId: string; path: Hex[]; withdrawBelow: number }
-  | { kind: 'result'; report: BattleReport }
+  /** `lostCities`: the viewer's cities a defender fell back into and took during this battle. */
+  | { kind: 'result'; report: BattleReport; lostCities: string[] }
   /** The city panel. */
   | { kind: 'city'; siteId: string }
   /** The player just took a city and must choose its fate. */
@@ -299,7 +300,10 @@ export function settle(step: UiState, events: GameEvent[], error: string | null,
   if (mode.kind === 'summary') return step;
   const battle = events.find((e): e is BattleReport => e.kind === 'battle');
   // The battle result shows first; Continue then opens any capture card.
-  if (battle) return ui({ kind: 'result', report: battle }, error);
+  if (battle) {
+    const lostCities = events.flatMap((e) => (e.kind === 'captured' && e.from === view.viewer ? [e.siteId] : []));
+    return ui({ kind: 'result', report: battle, lostCities }, error);
+  }
   const nextCapture = view.pendingCaptures[0];
   const moves = events.filter((e) => e.kind === 'moved');
   const routesNote =

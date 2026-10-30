@@ -126,12 +126,10 @@ export function buildSummary(view: PlayerView, content: ContentPack, strings: St
   }
   const healed = of('healed').filter((e) => e.playerId === me).reduce((n, e) => n + e.hits, 0);
   if (healed) items.push({ tone: 'neutral', title: 'Wounds healed', detail: `${healed} hit${healed === 1 ? '' : 's'} recovered.` });
+  // An eliminated player gets no further turn, so this only ever reports other players.
   for (const e of of('eliminated')) {
-    items.push(
-      e.playerId === me
-        ? { tone: 'danger', title: 'You have been eliminated', detail: 'You hold no city.' }
-        : { tone: 'neutral', title: `${factionName(e.playerId)} eliminated`, detail: 'They hold no city, and their army has disbanded.' },
-    );
+    if (e.playerId === me) continue;
+    items.push({ tone: 'neutral', title: `${factionName(e.playerId)} eliminated`, detail: 'They hold no city, and their army has disbanded.' });
   }
 
   const income = of('income').find((e) => e.playerId === me);

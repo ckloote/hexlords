@@ -3,7 +3,7 @@
 
 import { productionBlocker } from '../engine/cities';
 import type { ContentPack, UnitType } from '../engine/content';
-import { cityIncome } from '../engine/economy';
+import { cityIncome, incomeOf, upkeepOf } from '../engine/economy';
 import { hexKey, sameHex } from '../engine/hex';
 import { RULES } from '../engine/rules';
 import type { PlayerId } from '../engine/types';
@@ -59,6 +59,9 @@ export function cityCard(view: PlayerView, content: ContentPack, strings: String
     : [strings.tiers[city.tier], defense ? `walls +${defense}%` : 'no walls', `${cityIncome(city.tier)} gold a turn`].join(' · ');
   const holding = city.razed || city.owner === null ? '' : city.secured ? 'Secured' : 'Not yet secured: counts toward victory after a full round';
 
+  // Production runs after next turn's income and upkeep, so judge gold against that treasury.
+  const nextGold = Math.max(0, view.gold + incomeOf(view, view.viewer) - upkeepOf(view, content, view.viewer));
+
   let building: CityCard['building'] = null;
   if (mine && city.production) {
     const type = content.units[city.production.unitTypeId]!;
@@ -66,7 +69,7 @@ export function cityCard(view: PlayerView, content: ContentPack, strings: String
     const { progress } = city.production;
     const cost = type.cost ?? 0;
     // A finished unit leaves at the next turn start unless something blocks it.
-    const blocker = progress < turns ? null : productionBlocker(view, site.pos, view.viewer, cost, view.gold);
+    const blocker = progress < turns ? null : productionBlocker(view, site.pos, view.viewer, cost, nextGold);
     const status =
       blocker === 'full' ? 'Waiting: the stack in the city is full'
       : blocker === 'gold' ? `Waiting for gold: needs ${cost}`
@@ -85,7 +88,7 @@ export function cityCard(view: PlayerView, content: ContentPack, strings: String
           turns: type.buildTurns ?? 1,
           upkeep: type.upkeep ?? 0,
           current: city.production?.unitTypeId === id,
-          affordable: view.gold >= (type.cost ?? 0),
+          affordable: nextGold >= (type.cost ?? 0),
         };
       })
     : [];
