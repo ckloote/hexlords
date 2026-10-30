@@ -124,6 +124,7 @@ A losing stack can retreat to save its survivors, but it pays with a pursuit str
 - A withdrawing defender moves to one of the three adjacent hexes at distance 2 from the attacker, the hexes behind it; surrounding a stack means blocking those three. The hex must be one every unit in the stack can enter and must hold no enemy. A hex with a friendly stack counts if the merged stack stays at 8 units or fewer, and the stacks merge.
 - Among legal hexes: a friendly city first (it heals faster and defends better), then the lowest move cost for the stack, then a fixed direction order.
 - If no such hex exists, the stack cannot retreat and its Fall back check is skipped. Encirclement, rivers, and passes matter.
+- The odds preview picks the defender's retreat hex from what the attacker can see, so an enemy stack hidden on a rear hex could make the real retreat differ from the preview. With the default vision of 2 this can't happen yet, because the rear hexes are exactly 2 from the attacker; it matters only if a content pack gives a unit vision 1.
 - A defender that retreats starts its next turn with half its movement.
 - An attack ends the attacking stack's movement for the turn, whatever the result. If the defenders are destroyed or withdraw, the attacker moves into their hex for free, but only if every unit in the attacking stack can enter it: a stack without dwarves that beats dwarves on a mountain stays where it is.
 
@@ -194,9 +195,22 @@ Each city has its own build list, so a few cities, such as the only griffin roos
 - Selecting a stack shades contested hexes, and the path preview shows the true cost.
 - Costs are fixed during a turn, so the AI's pathfinding stays a standard shortest-path search.
 
+**Movement**
+
+- Each unit tracks its own remaining movement; a stack moves at its lowest unit's remaining points. Splitting and merging therefore need no special rules, and the half movement after a retreat and the zero after an attack sit on the units themselves.
+- One stack per hex. Move takes an optional subset of the stack's units: moving some units splits them off, and moving onto a friendly stack merges, if the result is 8 units or fewer. There are no separate Split or Merge commands.
+- No partial steps: a step needs enough movement left to pay for the hex it enters, and leftover points are lost at the end of the turn.
+- A stack-wide movement ability applies only if every unit in the stack has it. A stack flies only if every unit flies (so a hero can't travel with griffins), crosses mountains only if every unit can, and skips the zone-of-control surcharge in forest only if every unit is a Ranger.
+- Flying stacks pay at most 2 per hex (roads and bridges still 1), cross mountains, water, and rivers, and ignore zone of control.
+- Rangers skip the zone-of-control surcharge when the hex they step into is forest.
+- Attacking needs the movement it would cost to step into the target hex. If the attacker can't enter that hex (a stack without dwarves attacking dwarves on a mountain, or ground units attacking fliers over water), the attack needs 2, the cost of a plains step. The attack then ends the stack's movement (see Retreat).
+- Routes don't continue automatically inside the engine. An unfinished route saves its destination on the stack, not the list of hexes; at the start of the owner's turn the UI plans a fresh path with current information and issues it again, and drops the route if no path exists. Zone of control and newly spotted stacks change the best path, so an old hex list could walk into trouble.
+
 **Fog of war and map authoring**
 
-- Each unit has a vision radius, 2 hexes by default, and a stack on hills sees 1 hex farther. Cities see 2 hexes for their owner.
+- Map terrain and city ownership are visible to everyone; fog hides only units, including city garrisons. The scoreboard already shows each faction's income, so city ownership is public anyway.
+- Each unit has a vision radius, 2 hexes by default, and a stack on hills sees 1 hex farther. Vision is a content-pack field per unit type. Cities see 2 hexes for their owner.
+- City ownership is part of the game state, copied from the map's starting owners when the game begins. Until capture arrives in milestone 4, it simply never changes; the "friendly city" retreat tie-break and city vision read it from the state, never from the map file.
 - Maps are built in Tiled, a free editor with hex support and JSON export. Ruins, temples, and build lists are object properties, so maps stay pure data.
 
 **Generated maps**
@@ -286,6 +300,8 @@ Priced with the same formula as the shared roster: 2 × Strength × Hits, plus +
 | Trolls | Orc Horde | 5 | 3 | 8 | 38 | 2 | 5 | Heal 1 hit per turn even while moving |
 
 Horse Archers are weaker than Cavalry in a straight fight and cheaper; their job is punishing retreats. Their two pursuit strikes resolve one at a time against the weakest surviving withdrawing unit, so the second strike can finish a unit the first one wounded.
+
+A faction trait applies to every unit of that faction, including heroes, griffins, and allies from ruins, unless the trait names which units it covers: the Horse Clans' faster build and plains bonus apply only to mounted units, and the Orc discount only to militia and infantry. So a dwarf hero crosses mountains with the Ironguard, and a dwarf hero's ally doesn't strand him at a mountain.
 
 Traits are generic tags in the data files, such as "forest-native", "mountain-walker", and "regenerates". A reskin renames them without code changes.
 
@@ -482,6 +498,7 @@ The AI remains the biggest risk to the proof of concept, so it should be playtes
 - **AI tuning:** goal weights, the commitment bonus, garrison minimums, and the leader bonus get tuned in AI-vs-AI simulation.
 - **Victory tuning:** the 50% domination threshold and the 40-turn default limit get tested in AI-vs-AI games.
 - **Snowball control** beyond upkeep, such as supply lines that reduce distant cities' output. The leader bonus, last stand, and turn limit cover part of this; supply lines are undecided.
+- **Stuck after a retreat:** with half movement, a siege engine or Ironguard has 3 points and may not afford any step in rough ground, so it sits out a turn. That may be a fair price for retreating through rough terrain. If it feels bad in play, the usual fix is to let a stack that hasn't moved this turn always take one step.
 - **Values to tune:** zone-of-control penalty (+2 or +4), upkeep rate, elite premium, movement lost after a retreat, hiring cadence.
 - **Multiplayer path:** hot-seat first, then async play with push notifications. Simultaneous turns remain an option.
 - **Reskin check:** build one small non-fantasy content pack early to prove the engine has no theme baked in.

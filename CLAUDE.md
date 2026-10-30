@@ -28,7 +28,7 @@ npm run build      # type-check, then production build to dist/
 
 1. **Pure engine.** `src/engine/` is plain TypeScript with no DOM, PixiJS, timers, `Date`, or `Math.random`. Its core is `applyCommand(state, command) → { state } | { error }`.
 2. **Deterministic.** Randomness comes from a small seeded PRNG whose state lives inside the game state, so any game can be replayed from its seed and command log.
-3. **Serializable state.** Game state is plain JSON-safe data (no classes, Maps, or functions). Commands are data too: Move, Attack, SetProduction, SetStance, Split, Merge, Explore, EndTurn, and so on.
+3. **Serializable state.** Game state is plain JSON-safe data (no classes, Maps, or functions). Commands are data too: Move (which also splits and merges stacks), Attack, SetProduction, SetStance, Explore, EndTurn, and so on.
 4. **Theme-agnostic engine.** The engine uses neutral terms (commander, site, stack) and generic tags (`forest-native`, `mountain-walker`, `regenerates`, `leads-stack`, `flying`, `siege`). Names, stats, and art live in a content pack, `src/content/fantasy/`, as JSON. A reskin must need no engine changes.
 5. **One exact odds function.** A memoized recursion over (attacker unit index, its hits, defender unit index, its hits) gives win probability and expected survivors. The odds preview, the AI, and in-battle retreat checks all use it. Actual battles sample the seeded RNG.
 6. **The AI is just a player.** It issues the same commands as the UI and reads only `viewFor(state, playerId)`, the fog-filtered view a multiplayer server would send. It runs in a Web Worker.
