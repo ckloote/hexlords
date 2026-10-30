@@ -210,7 +210,7 @@ function react(view: PlayerView, content: ContentPack, state: UiState, input: In
   }
   const pending = view.pendingCaptures;
   // The capture card is modal: the city's fate comes first.
-  if (mode.kind === 'capture' && pending.some((p) => p.siteId === mode.siteId)) {
+  if (mode.kind === 'capture' && pending.includes(mode.siteId)) {
     if (input.kind !== 'capture') return none(state);
     return { ui: state, commands: [{ type: 'ResolveCapture', playerId: view.viewer, siteId: mode.siteId, choice: input.choice }] };
   }
@@ -224,7 +224,7 @@ function react(view: PlayerView, content: ContentPack, state: UiState, input: In
       return none(ui({ kind: 'idle' }));
     case 'continue':
       if (mode.kind === 'result') {
-        if (pending.length) return none(ui({ kind: 'capture', siteId: pending[0]!.siteId }));
+        if (pending.length) return none(ui({ kind: 'capture', siteId: pending[0]! }));
         const id = mode.report.attackerStackId;
         return none(view.stacks[id] ? select(id) : ui({ kind: 'idle' }));
       }
@@ -274,7 +274,7 @@ function react(view: PlayerView, content: ContentPack, state: UiState, input: In
       return none(state);
     case 'endTurn': {
       if (pending.length) {
-        return none(ui({ kind: 'capture', siteId: pending[0]!.siteId }, 'Decide what to do with the cities you took before ending the turn.'));
+        return none(ui({ kind: 'capture', siteId: pending[0]! }, 'Decide what to do with the cities you took before ending the turn.'));
       }
       const idle = idleCities(view);
       if (idle.length && !state.endWarned) {
@@ -313,11 +313,11 @@ export function settle(step: UiState, events: GameEvent[], error: string | null,
       resolved.choice === 'occupy' ? `${site.name} is yours.`
       : resolved.choice === 'raze' || view.cities[site.id]!.razed ? `${site.name} lies in ruins${resolved.gold ? `; you took ${resolved.gold} gold` : ''}.`
       : `You pillaged ${site.name} for ${resolved.gold} gold.`;
-    if (nextCapture) return ui({ kind: 'capture', siteId: nextCapture.siteId }, note);
+    if (nextCapture) return ui({ kind: 'capture', siteId: nextCapture }, note);
     const there = Object.values(view.stacks).find((s) => s.owner === view.viewer && sameHex(s.pos, site.pos));
     return there ? ui({ kind: 'selected', stackId: there.id, split: [] }, note) : ui({ kind: 'idle' }, note);
   }
-  if (nextCapture) return ui({ kind: 'capture', siteId: nextCapture.siteId }, error ?? routesNote);
+  if (nextCapture) return ui({ kind: 'capture', siteId: nextCapture }, error ?? routesNote);
   // A rejected build or capture choice keeps its panel open, with the reason.
   if (error && (mode.kind === 'city' || mode.kind === 'capture')) return ui(mode, error);
   if (error) {

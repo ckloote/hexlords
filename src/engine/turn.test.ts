@@ -135,6 +135,16 @@ describe('secured cities and victory', () => {
     expect(applyCommand(r.state, end('p1'), fantasy)).toEqual({ error: 'The game is over' });
   });
 
+  it('eliminates nobody once every city is razed; the turn limit decides', () => {
+    const s = game([{ owner: 'p1', pos: at(3, 2), units: ['infantry'] }, { owner: 'p2', pos: at(5, 2), units: ['militia'] }]);
+    const cities = Object.fromEntries(Object.entries(s.cities).map(([id, c]) => [id, { ...c, owner: null, razed: true }]));
+    const ruined: GameState = { ...s, cities, turn: 2 };
+    const r = step(step(ruined, end('p1')).state, end('p2'));
+    expect(r.events.some((e) => e.kind === 'eliminated')).toBe(false);
+    expect(r.state.players.every((p) => !p.eliminated)).toBe(true);
+    expect(r.state.winner).toBeUndefined();
+  });
+
   it('checks domination from round 2, for every player alike', () => {
     // 25 total; at 40% both p1 (15) and p2 (10) start with enough, but nobody wins in round 1.
     const s = game([], { map: board({ turnLimit: 40, domination: 0.4 }) });

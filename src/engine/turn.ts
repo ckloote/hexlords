@@ -119,8 +119,9 @@ export function startTurn(state: GameState, content: ContentPack, events: TurnEv
   let s = state;
   // Round 1 runs no turn-start checks, so every player starts on equal terms.
   const checks = s.turn > 1;
-  // A map without cities (a test board) eliminates nobody.
-  if (checks && s.map.sites.length > 0 && incomeOf(s, playerId) === 0) return eliminate(s, playerId, events);
+  // Elimination needs a standing city somewhere: a test board with no cities,
+  // or a map where every city is razed, eliminates nobody (the turn limit decides).
+  if (checks && totalIncome(s) > 0 && incomeOf(s, playerId) === 0) return eliminate(s, playerId, events);
   events.push({ kind: 'turn-started', playerId, turn: s.turn });
   if (checks) {
     s = collect(s, content, playerId, events);

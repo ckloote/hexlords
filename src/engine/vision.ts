@@ -6,7 +6,7 @@ import type { ContentPack } from './content';
 import { type Hex, hexesWithin, hexKey } from './hex';
 import { inBounds, terrainAt } from './map';
 import { RULES } from './rules';
-import type { CityState, GameState, PendingCapture, PlayerId, Stack, Winner, World } from './types';
+import type { CityState, GameState, PlayerId, Stack, Winner, World } from './types';
 
 /** Vision radius of these units standing on `pos`: the best unit's vision plus the terrain bonus. */
 export function visionRadius(world: World, content: ContentPack, unitIds: readonly string[], pos: Hex): number {
@@ -55,7 +55,7 @@ export interface PlayerView extends World {
   /** The viewer's own treasury; other players' gold is private. */
   gold: number;
   /** The viewer's captures awaiting a choice (empty unless it is their turn). */
-  pendingCaptures: PendingCapture[];
+  pendingCaptures: string[];
   winner?: Winner;
 }
 
@@ -81,7 +81,7 @@ export function viewFor(state: GameState, content: ContentPack, playerId: Player
     visible: [...visible].sort(),
     explored: Object.keys(state.explored[playerId] ?? {}).sort(),
     gold: state.gold[playerId] ?? 0,
-    pendingCaptures: state.players[state.currentPlayer]?.id === playerId ? state.pendingCaptures.map((p) => ({ ...p })) : [],
+    pendingCaptures: state.players[state.currentPlayer]?.id === playerId ? [...state.pendingCaptures] : [],
   };
   if (state.winner) view.winner = { ...state.winner };
   return view;

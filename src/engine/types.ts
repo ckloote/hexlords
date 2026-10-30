@@ -65,11 +65,6 @@ export interface CityState {
 
 export type CaptureChoice = 'occupy' | 'pillage' | 'raze';
 
-/** A city taken this turn, awaiting Occupy, Pillage, or Raze. */
-export interface PendingCapture {
-  siteId: string;
-  stackId: string;
-}
 
 export interface Winner {
   /** null for a draw. */
@@ -103,8 +98,12 @@ export interface GameState extends World {
   nextUnitId: number;
   /** Treasury per player. */
   gold: Record<PlayerId, number>;
-  /** Cities the current player took this turn and has not yet decided on; they must all be resolved before ending the turn. */
-  pendingCaptures: PendingCapture[];
+  /**
+   * Site ids of cities the current player took this turn and has not yet
+   * decided on (Occupy, Pillage, or Raze), each once; they must all be
+   * resolved before ending the turn. A city that changes hands again drops off.
+   */
+  pendingCaptures: string[];
   /** Set when the game is over; no command is accepted after that. */
   winner?: Winner;
 }

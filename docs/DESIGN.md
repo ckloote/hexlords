@@ -269,7 +269,7 @@ The battle math shows that combat value equals Strength × Hits. A Strength-8 un
 
 - A stack takes a city when a move ends on it, or when it advances into it after winning a battle, if the city belongs to someone else or to nobody. Passing through an empty city without stopping does not take it.
 - Neutral cities start empty, so walking in takes them. Neutral garrisons may come with the map generator.
-- The player must choose Occupy, Pillage, or Raze for every city taken before ending the turn. Captures queue up, so play goes on in the meantime: continued routes all run, and an attack staged from a city just taken still happens. The choices are then asked one city at a time, after any battle result.
+- The player must choose Occupy, Pillage, or Raze for every city taken before ending the turn. Captures queue up, so play goes on in the meantime: continued routes all run, and an attack staged from a city just taken still happens. The choices are then asked one city at a time, after any battle result. A city that changes hands again before its choice is made (an enemy falls back into it) drops off the list.
 - Pillage pays 3 turns of the city's income at its current tier, then drops it one tier. Pillaging a village razes it. (The Orc Horde's double pillage arrives with the faction traits.)
 - A razed city is rubble: no owner, income, defense, vision, or production, and nobody can take it again. It leaves the map's total income, so the domination target shrinks; a pillaged city counts at its new tier.
 - Taking a city stops its production and restarts its hold: it is not secured until its new owner has held it for a full round.
@@ -392,7 +392,7 @@ When a player's current income passes 50%, every player sees a warning. The AI's
 
 **Elimination and resigning**
 
-- A player who starts a turn with no cities is eliminated immediately, and their units disband. There is no exile period. Like the other turn-start checks, this begins in the second round. (A test board with no cities at all eliminates nobody.)
+- A player who starts a turn with no cities is eliminated immediately, and their units disband. There is no exile period. Like the other turn-start checks, this begins in the second round. Elimination needs at least one standing city on the map: if every city has been razed (or a test board has none), nobody is eliminated and the turn limit decides.
 - In multiplayer, a player who resigns leaves their cities neutral, garrisons included.
 
 **Victory conditions are map data**
