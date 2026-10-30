@@ -1,6 +1,7 @@
 // The city panel's model: tier, walls, income, what it is building and when it
 // will be ready, the build list, and the garrison. Reads only the player's view.
 
+import { productionBlocker } from '../engine/cities';
 import type { ContentPack, UnitType } from '../engine/content';
 import { cityIncome } from '../engine/economy';
 import { hexKey, sameHex } from '../engine/hex';
@@ -63,11 +64,13 @@ export function cityCard(view: PlayerView, content: ContentPack, strings: String
     const type = content.units[city.production.unitTypeId]!;
     const turns = type.buildTurns ?? 1;
     const { progress } = city.production;
-    const here = Object.values(view.stacks).find((s) => sameHex(s.pos, site.pos));
-    let status: string;
-    if (progress < turns) status = `Ready on turn ${view.turn + turns - progress}`;
-    else if (here && here.unitIds.length >= RULES.maxStackSize) status = 'Waiting: the stack in the city is full';
-    else status = `Waiting for gold: needs ${type.cost ?? 0}`;
+    const cost = type.cost ?? 0;
+    // A finished unit leaves at the next turn start unless something blocks it.
+    const blocker = progress < turns ? null : productionBlocker(view, site.pos, view.viewer, cost, view.gold);
+    const status =
+      blocker === 'full' ? 'Waiting: the stack in the city is full'
+      : blocker === 'gold' ? `Waiting for gold: needs ${cost}`
+      : `Ready on turn ${view.turn + Math.max(1, turns - progress)}`;
     building = { name: type.name, progress, turns, status };
   }
 

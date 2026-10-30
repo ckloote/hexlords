@@ -5,7 +5,7 @@ import { pillagedTier, pillageGold } from './economy';
 import { type Hex, sameHex } from './hex';
 import { cityAt } from './map';
 import { RULES } from './rules';
-import type { CaptureChoice, CityState, CommandResult, GameState, PlayerId, TurnEvent, Unit } from './types';
+import type { CaptureChoice, CityState, CommandResult, GameState, PlayerId, TurnEvent, Unit, World } from './types';
 
 export function setProduction(
   state: GameState,
@@ -84,6 +84,23 @@ export function resolveCapture(state: GameState, playerId: PlayerId, siteId: str
 }
 
 /**
+ * Why a finished unit cannot leave a city on `pos` now: 'full' when the hex
+ * holds another player's stack or a full one, 'gold' when the treasury is
+ * short of its cost; null when it can be built.
+ */
+export function productionBlocker(
+  world: Pick<World, 'stacks'>,
+  pos: Hex,
+  playerId: PlayerId,
+  cost: number,
+  gold: number,
+): 'full' | 'gold' | null {
+  const here = Object.values(world.stacks).find((s) => sameHex(s.pos, pos));
+  if (here && (here.owner !== playerId || here.unitIds.length >= RULES.maxStackSize)) return 'full';
+  return gold < cost ? 'gold' : null;
+}
+
+/**
  * Advances production in `playerId`'s cities by one turn. A finished unit is
  * paid for now; if the treasury is short or the city's hex holds a full
  * stack, it waits, keeping its progress. New units join the stack in the
@@ -104,17 +121,12 @@ export function runProduction(state: GameState, content: ContentPack, playerId: 
     const progress = Math.min(city.production.progress + 1, buildTurns);
     cities[site.id] = { ...city, production: { ...city.production, progress } };
     if (progress < buildTurns) continue;
+    const blocker = productionBlocker({ stacks }, site.pos, playerId, cost, gold);
+    if (blocker) {
+      events.push({ kind: 'production-waiting', playerId, siteId: site.id, unitTypeId: type.id, reason: blocker });
+      continue;
+    }
     const here = Object.values(stacks).find((s) => sameHex(s.pos, site.pos));
-    const waiting = (reason: 'gold' | 'full') =>
-      events.push({ kind: 'production-waiting', playerId, siteId: site.id, unitTypeId: type.id, reason });
-    if (here && (here.owner !== playerId || here.unitIds.length >= RULES.maxStackSize)) {
-      waiting('full');
-      continue;
-    }
-    if (gold < cost) {
-      waiting('gold');
-      continue;
-    }
     gold -= cost;
     const unit: Unit = { id: `u${nextUnitId++}`, typeId: type.id, hits: type.hits, moveLeft: type.move };
     units[unit.id] = unit;

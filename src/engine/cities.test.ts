@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fantasy } from '../content/fantasy';
-import { captureAt } from './cities';
+import { captureAt, productionBlocker } from './cities';
 import { applyCommand, createGame, type GameSetup, replay } from './engine';
 import { asciiMap, at } from './test-fixtures';
 import type { Command, CommandResult, GameState } from './types';
@@ -59,6 +59,21 @@ describe('SetProduction', () => {
     const started = { ...s, cities: { ...s.cities, c0: { ...s.cities.c0!, production: { unitTypeId: 'cavalry', progress: 1 } } } };
     expect(ok(applyCommand(started, build('c0', 'cavalry'), fantasy)).cities.c0!.production).toEqual({ unitTypeId: 'cavalry', progress: 1 });
     expect(ok(applyCommand(started, build('c0', 'militia'), fantasy)).cities.c0!.production).toEqual({ unitTypeId: 'militia', progress: 0 });
+  });
+});
+
+describe('productionBlocker', () => {
+  const s = game([
+    { owner: 'p1', pos: at(0, 0), units: Array.from({ length: 8 }, () => 'militia') },
+    { owner: 'p2', pos: at(7, 4), units: ['militia'] },
+  ]);
+
+  it('blocks on a full stack or another player\'s stack, then on gold', () => {
+    expect(productionBlocker(s, at(0, 0), 'p1', 8, 100)).toBe('full');
+    expect(productionBlocker(s, at(7, 4), 'p1', 8, 100)).toBe('full'); // someone else's stack stands there
+    expect(productionBlocker(s, at(3, 2), 'p1', 16, 15)).toBe('gold');
+    expect(productionBlocker(s, at(3, 2), 'p1', 16, 16)).toBeNull();
+    expect(productionBlocker(s, at(7, 4), 'p2', 8, 8)).toBeNull(); // joins its own stack
   });
 });
 

@@ -6,6 +6,7 @@ import type { ContentPack } from '../engine/content';
 import { dominationTarget, incomeOf, lastStandPlayer, securedScore, totalIncome, upkeepOf } from '../engine/economy';
 import type { PlayerId } from '../engine/types';
 import type { PlayerView } from '../engine/vision';
+import { signed } from './strings';
 
 export interface ScoreEntry {
   playerId: PlayerId;
@@ -67,7 +68,7 @@ export function scoreboard(view: PlayerView, content: ContentPack): Scoreboard {
 
 /** "+18 per turn" or "−4 per turn". */
 export function netLabel(net: number): string {
-  return `${net < 0 ? '−' : '+'}${Math.abs(net)} per turn`;
+  return `${signed(net)} per turn`;
 }
 
 /** "You 45 · Orcs 60". */

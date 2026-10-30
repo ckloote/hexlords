@@ -1,14 +1,15 @@
 // The turn summary ("while you were away"): what happened to the viewer since
 // their last turn, built from the engine's events. The controller passes only
-// events from other players' turns and the viewer's own turn start.
+// the events summaryEventFor keeps: from other players' turns and the
+// viewer's own turn start.
 
 import type { ContentPack } from '../engine/content';
 import { cityIncome } from '../engine/economy';
-import type { BattleReport, GameEvent, TurnEvent } from '../engine/types';
+import type { BattleReport, GameEvent, PlayerId, TurnEvent } from '../engine/types';
 import type { PlayerView } from '../engine/vision';
 import { countNames } from './cityCard';
 import { leaderLine, type Scoreboard, scoreboard } from './scoreboard';
-import type { Strings } from './strings';
+import { signed, type Strings } from './strings';
 
 export interface SummaryItem {
   tone: 'good' | 'danger' | 'neutral';
@@ -28,6 +29,30 @@ export interface Summary {
 }
 
 type Of<K extends TurnEvent['kind']> = Extract<TurnEvent, { kind: K }>;
+
+/**
+ * Whether `event` belongs in `playerId`'s next turn summary, given the events
+ * already kept for them: battles they fought, cities taken from or by them
+ * (and what was done with those), their own turn-start events, eliminations,
+ * and the end of the game.
+ */
+export function summaryEventFor(event: GameEvent, playerId: PlayerId, kept: readonly GameEvent[]): boolean {
+  switch (event.kind) {
+    case 'moved':
+      return false;
+    case 'battle':
+      return event.attackerOwner === playerId || event.defenderOwner === playerId;
+    case 'captured':
+      return event.playerId === playerId || event.from === playerId;
+    case 'capture-resolved':
+      return kept.some((e) => e.kind === 'captured' && e.siteId === event.siteId);
+    case 'eliminated':
+    case 'game-over':
+      return true;
+    default:
+      return event.playerId === playerId;
+  }
+}
 
 /** Units each side lost in a battle, pursuit included. */
 export function battleLosses(report: BattleReport): { attacker: number; defender: number } {
@@ -112,8 +137,8 @@ export function buildSummary(view: PlayerView, content: ContentPack, strings: St
   const income = of('income').find((e) => e.playerId === me);
   const net = board.income - board.upkeep;
   const economy = income
-    ? `Income ${income.income} − upkeep ${income.upkeep} = ${income.income - income.upkeep < 0 ? '−' : '+'}${Math.abs(income.income - income.upkeep)} gold · treasury ${view.gold}`
-    : `Income ${board.income} − upkeep ${board.upkeep} = ${net < 0 ? '−' : '+'}${Math.abs(net)} gold a turn · treasury ${view.gold}`;
+    ? `Income ${income.income} − upkeep ${income.upkeep} = ${signed(income.income - income.upkeep)} gold · treasury ${view.gold}`
+    : `Income ${board.income} − upkeep ${board.upkeep} = ${signed(net)} gold a turn · treasury ${view.gold}`;
 
   const leader = `${leaderLine(board, view, content)} Domination needs ${board.target} secured.`;
   const lastStand =

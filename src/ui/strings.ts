@@ -42,6 +42,11 @@ export function loadStrings(raw: unknown): Strings {
   };
 }
 
+/** "+18" or "−4" (with a real minus sign). */
+export function signed(n: number): string {
+  return `${n < 0 ? '−' : '+'}${Math.abs(n)}`;
+}
+
 /** "+25%" or "−25%" (with a real minus sign). */
 export function signedPct(pct: number): string {
   return `${pct < 0 ? '−' : '+'}${Math.abs(pct)}%`;

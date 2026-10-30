@@ -9,7 +9,7 @@ import { Game } from './controller';
 import { demoGame } from './demo';
 import { initialUi, type Input, MOVED, type UiState } from './interaction';
 import { leaderLine, netLabel, scoreboard, scoreLine } from './scoreboard';
-import { loadStrings } from './strings';
+import { loadStrings, signed } from './strings';
 import { buildSummary } from './summary';
 
 // Demo game: the dwarves (p1) hold Stonebridge (site4, city) and Kettle Ford
@@ -69,6 +69,12 @@ describe('city card', () => {
     });
     const broke: GameState = { ...building, gold: { ...building.gold, p1: 3 }, cities: { ...building.cities, site4: { ...building.cities.site4!, production: { unitTypeId: 'ironguard', progress: 2 } } } };
     expect(cityCard(viewFor(broke, fantasy, 'p1'), fantasy, strings, 'site4').building!.status).toBe('Waiting for gold: needs 30');
+    // Finished and affordable now: it leaves at the next turn start.
+    const flush: GameState = { ...broke, gold: { ...broke.gold, p1: 30 } };
+    expect(cityCard(viewFor(flush, fantasy, 'p1'), fantasy, strings, 'site4').building!.status).toBe('Ready on turn 2');
+    // Another player's stack in the city blocks it, as the engine rules.
+    const blocked: GameState = { ...flush, stacks: { ...flush.stacks, s3: { ...flush.stacks.s3!, pos: at(6, 14) } } };
+    expect(cityCard(viewFor(blocked, fantasy, 'p1'), fantasy, strings, 'site4').building!.status).toBe('Waiting: the stack in the city is full');
   });
 
   it('shows other cities without their production', () => {
@@ -80,6 +86,10 @@ describe('city card', () => {
 
   it('counts unit names', () => {
     expect(countNames(['Archers', 'Militia', 'Archers'])).toBe('2 Archers, 1 Militia');
+  });
+
+  it('signs numbers with a real minus', () => {
+    expect([signed(18), signed(0), signed(-4)]).toEqual(['+18', '+0', '−4']);
   });
 });
 
@@ -194,5 +204,23 @@ describe('cities and captures in play', () => {
     if (!battle || battle.kind !== 'battle') throw new Error('no battle');
     const ui = play(game, [{ kind: 'continue' }], { mode: { kind: 'result', report: battle }, message: null });
     expect(ui.mode).toEqual({ kind: 'capture', siteId: 'site2' });
+  });
+
+  it('keeps only what the turn summary uses, not the other player\'s moves', () => {
+    const game = new Game(demoGame(), fantasy);
+    const pass = (ui: UiState) => {
+      let u = play(game, [{ kind: 'endTurn' }], ui);
+      if (u.endWarned) u = play(game, [{ kind: 'endTurn' }], u);
+      return play(game, [{ kind: 'continue' }], u);
+    };
+    let ui = play(game, [{ kind: 'continue' }], pass(initialUi)); // into p2's turn
+    ui = play(game, [{ kind: 'tap', hex: at(6, 7) }, { kind: 'tap', hex: at(6, 6) }, { kind: 'confirm' }], ui);
+    expect(game.state.stacks.s4!.pos).toEqual(at(6, 6));
+    ui = pass(ui); // back to p1: the summary
+    if (ui.mode.kind !== 'summary') throw new Error(`expected the summary, got ${ui.mode.kind}`);
+    const kinds = ui.mode.events.map((e) => e.kind);
+    expect(kinds).not.toContain('moved');
+    expect(kinds).toContain('income');
+    expect(ui.mode.events.every((e) => !('playerId' in e) || e.playerId === 'p1')).toBe(true);
   });
 });

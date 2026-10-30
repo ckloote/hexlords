@@ -6,6 +6,7 @@ import { applyCommand } from '../engine/engine';
 import type { Command, GameEvent, GameState } from '../engine/types';
 import { type PlayerView, viewFor } from '../engine/vision';
 import { type Input, interact, MOVED, settle, type UiState } from './interaction';
+import { summaryEventFor } from './summary';
 
 export interface RunResult {
   events: GameEvent[];
@@ -55,7 +56,15 @@ export class Game {
     const step = interact(this.view(), this.content, ui, input);
     const actor = this.playerId;
     const { events, error } = this.run(step.commands);
-    for (const p of this.state.players) if (p.id !== actor) (this.inbox[p.id] ??= []).push(...events);
+    for (const p of this.state.players) {
+      if (p.eliminated) {
+        delete this.inbox[p.id];
+        continue;
+      }
+      if (p.id === actor) continue;
+      const inbox = (this.inbox[p.id] ??= []);
+      for (const e of events) if (summaryEventFor(e, p.id, inbox)) inbox.push(e);
+    }
     let next = settle(step.ui, events, error, this.view());
     if (next.mode.kind === 'summary' && next.mode.events.length === 0) {
       next = { ...next, mode: { kind: 'summary', events: this.inbox[this.playerId] ?? [] } };
