@@ -125,7 +125,7 @@ A losing stack can retreat to save its survivors, but it pays with a pursuit str
 
 **Pursuit**
 
-- The winner's fastest unit (ties: the strongest) gets one free strike at the retreating stack's weakest surviving unit. This works the same whichever side withdraws.
+- The winner's fastest unit (ties: the one with more pursuit strikes, then the strongest) strikes the retreating stack's weakest surviving unit. Most units strike once; Horse Archers strike twice. This works the same whichever side withdraws.
 - The strike lands with the usual chance, P ÷ (P + T), and the target cannot hit back.
 - **Clean break:** no pursuit if every retreating unit is at least as fast as the pursuer.
 - A killing strike removes the unit before the stack reaches its retreat hex.
@@ -229,7 +229,8 @@ The battle math shows that combat value equals Strength × Hits. A Strength-8 un
 
 **Upkeep**
 
-- Each unit costs about 10–15% of its price per turn, so it costs its full price again every 7–10 turns.
+- Each unit costs 12% of its base price per turn, rounded, minimum 1 (listed in the unit tables), so it costs its full price again about every 8 turns. Faction discounts lower the purchase price, not upkeep.
+- Heroes pay no upkeep; their cost is the hiring price.
 - When gold runs out, production stops first. Then the most expensive unit deserts each turn.
 
 **Capturing a city**
@@ -246,14 +247,14 @@ Six shared units cover every role, and each faction adds one trait and one uniqu
 
 **Shared roster**
 
-| Unit | Strength | Hits | Move | Cost (gold) | Build (turns) | Role |
-| --- | --- | --- | --- | --- | --- | --- |
-| Militia | 2 | 2 | 8 | 8 | 1 | Garrisons and screens; fights first and absorbs pursuit |
-| Archers | 3 | 2 | 8 | 15 | 1 | +25% when defending |
-| Infantry | 4 | 2 | 8 | 16 | 1 | Backbone of every army |
-| Cavalry | 4 | 2 | 12 | 20 | 2 | Pursuit, raids, clean breaks |
-| Siege engine | 2 | 2 | 6 | 20 | 2 | Its stack cuts the enemy city bonus by 25 points, never below 0 |
-| Griffins | 5 | 2 | 16 | 30 | 3 | Flying; only a few cities build them |
+| Unit | Strength | Hits | Move | Cost (gold) | Build (turns) | Upkeep (gold per turn) | Role |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Militia | 2 | 2 | 8 | 8 | 1 | 1 | Garrisons and screens; fights first and absorbs pursuit |
+| Archers | 3 | 2 | 8 | 15 | 1 | 2 | +25% when defending |
+| Infantry | 4 | 2 | 8 | 16 | 1 | 2 | Backbone of every army |
+| Cavalry | 4 | 2 | 12 | 20 | 2 | 2 | Pursuit, raids, clean breaks |
+| Siege engine | 2 | 2 | 6 | 20 | 2 | 2 | Its stack cuts the enemy city bonus by 25 points, never below 0 |
+| Griffins | 5 | 2 | 16 | 30 | 3 | 4 | Flying; only a few cities build them |
 
 Dragons (Strength 8, 3 hits, flying) are never built. They join only as allies from ruins.
 
@@ -263,10 +264,23 @@ There are no rock-paper-scissors counters. Units differ by speed, terrain, and c
 
 | Faction | System it tests | Trait | Unique unit |
 | --- | --- | --- | --- |
-| Elves | Terrain | Forest costs the same as plains | Rangers: Strength 4 archers that ignore zone of control in forest |
-| Dwarves | Map | Cross mountains at 6 movement per hex | Ironguard: Strength 5, 3 hits, 6 movement |
-| Horse Clans | Pursuit | Cavalry builds in 1 turn; +25% attacking on plains | Horse Archers: strike twice when pursuing |
-| Orc Horde | Economy and healing | Militia and infantry cost 25% less; pillage yields double gold | Trolls: Strength 5, 3 hits, heal 1 hit per turn even while moving |
+| Elves | Terrain | Forest costs the same as plains | Rangers |
+| Dwarves | Map | Cross mountains at 6 movement per hex | Ironguard |
+| Horse Clans | Pursuit | Mounted units (Cavalry, Horse Archers) build 1 turn faster and get +25% attacking on plains | Horse Archers |
+| Orc Horde | Economy and healing | Militia and infantry cost 25% less; pillage yields double gold | Trolls |
+
+**Unique units**
+
+Priced with the same formula as the shared roster: 2 × Strength × Hits, plus +25% for speed and +25% for each other special.
+
+| Unit | Faction | Strength | Hits | Move | Cost (gold) | Build (turns) | Upkeep (gold per turn) | Special |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Rangers | Elves | 4 | 2 | 8 | 24 | 2 | 3 | +25% when defending, like archers; ignore zone of control in forest |
+| Ironguard | Dwarves | 5 | 3 | 6 | 30 | 2 | 4 | None; slow movement offsets the dense stats |
+| Horse Archers | Horse Clans | 3 | 2 | 12 | 18 | 1 (2 before the trait) | 2 | Mounted; strike twice when pursuing |
+| Trolls | Orc Horde | 5 | 3 | 8 | 38 | 2 | 5 | Heal 1 hit per turn even while moving |
+
+Horse Archers are weaker than Cavalry in a straight fight and cheaper; their job is punishing retreats. Their two pursuit strikes resolve one at a time against the weakest surviving withdrawing unit, so the second strike can finish a unit the first one wounded.
 
 Traits are generic tags in the data files, such as "forest-native", "mountain-walker", and "regenerates". A reskin renames them without code changes.
 
@@ -310,7 +324,8 @@ At 1 hit left, the hero may flee. The guardian gets a pursuit strike, and the he
 
 - Each faction starts with one hero, up to a maximum of 3.
 - Every few turns, a hiring offer appears at one of your cities.
-- The price rises with each hero owned: about 40, 80, then 120 gold. (Open: with one starting hero and a cap of 3, only two hires are possible; the mockup charges 40 for the second hero.)
+- The price is 40 gold for each hero you currently own: 40 for a second hero, 80 for a third. If a hero dies, the price drops back.
+- Heroes pay no upkeep. For AI scoring, a hero is worth its current hiring price plus its levels and items.
 
 ## Victory
 
