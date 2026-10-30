@@ -30,7 +30,31 @@ export interface UnitType {
   upkeep?: number;
   /** Strikes when pursuing a withdrawing stack; default 1. */
   pursuitStrikes?: number;
+  /** Vision radius in hexes; default RULES.defaultVision. */
+  vision?: number;
   tags: string[];
+}
+
+export interface TerrainType {
+  id: string;
+  name: string;
+  /** Doubled movement cost; null means impassable on foot. */
+  moveCost: number | null;
+  /** Defender bonus. */
+  defensePct: number;
+  /** Extra vision radius for a stack standing here. */
+  visionBonus: number;
+  tags: string[];
+  /** Cost overrides for units carrying a faction trait or unit tag, e.g. { "mountain-walker": 6 }. */
+  traitCosts?: Record<string, number>;
+}
+
+export const FEATURES = ['road', 'bridge', 'ford'] as const;
+
+export interface FeatureType {
+  name: string;
+  /** Replaces the terrain's cost for everyone. */
+  moveCost: number;
 }
 
 /** Upkeep rule from DESIGN.md: 12% of the base price, rounded, minimum 1. */
@@ -50,6 +74,8 @@ export interface ContentPack {
   name: string;
   units: Record<string, UnitType>;
   factions: Record<string, Faction>;
+  terrain: Record<string, TerrainType>;
+  features: Record<(typeof FEATURES)[number], FeatureType>;
 }
 
 function fail(msg: string): never {
@@ -66,12 +92,15 @@ function str(v: unknown, where: string): string {
   return v;
 }
 
-function num(v: unknown, where: string, { integer = false, min = 0 } = {}): number {
-  if (typeof v !== 'number' || !Number.isFinite(v) || v <= min || (integer && !Number.isInteger(v))) {
-    fail(`${where} must be ${integer ? 'an integer' : 'a number'} above ${min}`);
+function num(v: unknown, where: string, { integer = false, min = 0, inclusive = false } = {}): number {
+  const low = typeof v === 'number' && (inclusive ? v < min : v <= min);
+  if (typeof v !== 'number' || !Number.isFinite(v) || low || (integer && !Number.isInteger(v))) {
+    fail(`${where} must be ${integer ? 'an integer' : 'a number'} ${inclusive ? 'at least' : 'above'} ${min}`);
   }
   return v;
 }
+
+const pct = (v: unknown, where: string) => num(v, where, { integer: true, min: -100, inclusive: true });
 
 function tags(v: unknown, where: string): string[] {
   if (!Array.isArray(v) || !v.every((t) => typeof t === 'string')) fail(`${where} must be a list of strings`);
@@ -97,6 +126,7 @@ export function loadContent(raw: unknown): ContentPack {
     if (o.buildTurns !== undefined) unit.buildTurns = num(o.buildTurns, at('buildTurns'), { integer: true });
     if (o.upkeep !== undefined) unit.upkeep = num(o.upkeep, at('upkeep'), { integer: true });
     if (o.pursuitStrikes !== undefined) unit.pursuitStrikes = num(o.pursuitStrikes, at('pursuitStrikes'), { integer: true });
+    if (o.vision !== undefined) unit.vision = num(o.vision, at('vision'), { integer: true });
     units[id] = unit;
   }
   const factions: Record<string, Faction> = {};
@@ -114,5 +144,31 @@ export function loadContent(raw: unknown): ContentPack {
     }
     factions[id] = faction;
   }
-  return { id: str(r.id, 'id'), name: str(r.name, 'name'), units, factions };
+  const terrain: Record<string, TerrainType> = {};
+  for (const [id, t] of Object.entries(obj(r.terrain, 'terrain'))) {
+    const o = obj(t, `terrain.${id}`);
+    const at = (f: string) => `terrain.${id}.${f}`;
+    const type: TerrainType = {
+      id,
+      name: str(o.name, at('name')),
+      moveCost: o.moveCost === null ? null : num(o.moveCost, at('moveCost'), { integer: true }),
+      defensePct: pct(o.defensePct ?? 0, at('defensePct')),
+      visionBonus: num(o.visionBonus ?? 0, at('visionBonus'), { integer: true, inclusive: true }),
+      tags: tags(o.tags ?? [], at('tags')),
+    };
+    if (o.traitCosts !== undefined) {
+      type.traitCosts = {};
+      for (const [trait, cost] of Object.entries(obj(o.traitCosts, at('traitCosts')))) {
+        type.traitCosts[trait] = num(cost, at(`traitCosts.${trait}`), { integer: true });
+      }
+    }
+    terrain[id] = type;
+  }
+  const rawFeatures = obj(r.features, 'features');
+  const features = {} as ContentPack['features'];
+  for (const f of FEATURES) {
+    const o = obj(rawFeatures[f], `features.${f}`);
+    features[f] = { name: str(o.name, `features.${f}.name`), moveCost: num(o.moveCost, `features.${f}.moveCost`, { integer: true }) };
+  }
+  return { id: str(r.id, 'id'), name: str(r.name, 'name'), units, factions, terrain, features };
 }

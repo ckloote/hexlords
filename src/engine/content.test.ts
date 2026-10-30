@@ -53,13 +53,30 @@ describe('fantasy content pack', () => {
     expect(Object.keys(fantasy.factions)).toHaveLength(4);
   });
 
+  it('has the terrain table from DESIGN.md (costs doubled)', () => {
+    const cost = (id: string) => fantasy.terrain[id]!.moveCost;
+    expect([cost('plains'), cost('forest'), cost('hills'), cost('swamp')]).toEqual([2, 4, 4, 6]);
+    expect([cost('mountains'), cost('water'), cost('river')]).toEqual([null, null, null]);
+    expect(fantasy.terrain.forest).toMatchObject({ defensePct: 25, traitCosts: { 'forest-native': 2 } });
+    expect(fantasy.terrain.hills).toMatchObject({ defensePct: 25, visionBonus: 1 });
+    expect(fantasy.terrain.mountains!.traitCosts).toEqual({ 'mountain-walker': 6 });
+    expect(fantasy.features).toMatchObject({ road: { moveCost: 1 }, bridge: { moveCost: 1 }, ford: { moveCost: 4 } });
+  });
+
   it('is JSON-safe', () => {
     expect(JSON.parse(JSON.stringify(fantasy))).toEqual(fantasy);
   });
 });
 
 describe('loadContent validation', () => {
-  const good = { id: 't', name: 'T', units: { a: { name: 'A', strength: 3, hits: 2, move: 8, tags: [] } }, factions: {} };
+  const good = {
+    id: 't',
+    name: 'T',
+    units: { a: { name: 'A', strength: 3, hits: 2, move: 8, tags: [] } },
+    factions: {},
+    terrain: { plains: { name: 'P', moveCost: 2 } },
+    features: { road: { name: 'R', moveCost: 1 }, bridge: { name: 'B', moveCost: 1 }, ford: { name: 'F', moveCost: 4 } },
+  };
 
   it('accepts a minimal pack', () => {
     expect(loadContent(good).units.a!.id).toBe('a');
@@ -70,6 +87,12 @@ describe('loadContent validation', () => {
     expect(() => loadContent(bad)).toThrow(/strength/);
     const noHits = { ...good, units: { a: { name: 'A', strength: 3, hits: 1.5, move: 8, tags: [] } } };
     expect(() => loadContent(noHits)).toThrow(/hits/);
+  });
+
+  it('rejects bad terrain and missing features', () => {
+    expect(() => loadContent({ ...good, terrain: { x: { name: 'X', moveCost: 0 } } })).toThrow(/moveCost/);
+    expect(loadContent({ ...good, terrain: { x: { name: 'X', moveCost: null } } }).terrain.x!.moveCost).toBeNull();
+    expect(() => loadContent({ ...good, features: { road: { name: 'R', moveCost: 1 } } })).toThrow(/bridge/);
   });
 
   it('rejects a bad pursuit strike count', () => {

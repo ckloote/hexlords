@@ -38,6 +38,11 @@ export function terrainAt(map: MapState, h: Hex): string | undefined {
   return map.terrain[row * map.width + col];
 }
 
+/** hexKey of the hex at offset (col, row). */
+export function hexKeyOf(col: number, row: number): string {
+  return hexKey(fromOffset(col, row));
+}
+
 export function featureAt(map: MapState, h: Hex): Feature | undefined {
   return map.features[hexKey(h)];
 }

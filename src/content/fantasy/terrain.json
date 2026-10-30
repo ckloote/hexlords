@@ -1,0 +1,16 @@
+{
+  "terrain": {
+    "plains": { "name": "Plains", "moveCost": 2, "defensePct": 0, "visionBonus": 0, "tags": [] },
+    "forest": { "name": "Forest", "moveCost": 4, "defensePct": 25, "visionBonus": 0, "tags": ["forest"], "traitCosts": { "forest-native": 2 } },
+    "hills": { "name": "Hills", "moveCost": 4, "defensePct": 25, "visionBonus": 1, "tags": [] },
+    "swamp": { "name": "Swamp", "moveCost": 6, "defensePct": 0, "visionBonus": 0, "tags": [] },
+    "mountains": { "name": "Mountains", "moveCost": null, "defensePct": 0, "visionBonus": 0, "tags": [], "traitCosts": { "mountain-walker": 6 } },
+    "water": { "name": "Water", "moveCost": null, "defensePct": 0, "visionBonus": 0, "tags": [] },
+    "river": { "name": "River", "moveCost": null, "defensePct": 0, "visionBonus": 0, "tags": ["river"] }
+  },
+  "features": {
+    "road": { "name": "Road", "moveCost": 1 },
+    "bridge": { "name": "Bridge", "moveCost": 1 },
+    "ford": { "name": "Ford", "moveCost": 4 }
+  }
+}
