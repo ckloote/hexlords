@@ -3,19 +3,20 @@
 // farther. Cities see for their owner.
 
 import type { ContentPack } from './content';
-import { hexesWithin, hexKey } from './hex';
+import { type Hex, hexesWithin, hexKey } from './hex';
 import { inBounds, terrainAt } from './map';
 import { RULES } from './rules';
 import type { GameState, PlayerId, Stack, World } from './types';
 
-/** Vision radius of a stack where it stands. */
-export function stackVision(world: World, content: ContentPack, stack: Stack): number {
-  const unitVision = Math.max(
-    0,
-    ...stack.unitIds.map((id) => content.units[world.units[id]!.typeId]!.vision ?? RULES.defaultVision),
-  );
-  const terrain = content.terrain[terrainAt(world.map, stack.pos) ?? ''];
+/** Vision radius of these units standing on `pos`: the best unit's vision plus the terrain bonus. */
+export function visionRadius(world: World, content: ContentPack, unitIds: readonly string[], pos: Hex): number {
+  const unitVision = Math.max(0, ...unitIds.map((id) => content.units[world.units[id]!.typeId]!.vision ?? RULES.defaultVision));
+  const terrain = content.terrain[terrainAt(world.map, pos) ?? ''];
   return unitVision + (terrain?.visionBonus ?? 0);
+}
+
+export function stackVision(world: World, content: ContentPack, stack: Stack): number {
+  return visionRadius(world, content, stack.unitIds, stack.pos);
 }
 
 /** hexKeys `playerId` can see right now. */

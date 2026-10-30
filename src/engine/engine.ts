@@ -2,6 +2,7 @@
 // Pure and deterministic: every random draw comes from state.rng.
 
 import { resolveBattle } from './battle';
+import { applyMove, restoreMovement } from './move';
 import type { ContentPack } from './content';
 import { hexDistance, hexKey, type Hex } from './hex';
 import { inBounds, type MapState } from './map';
@@ -79,7 +80,7 @@ export function applyCommand(state: GameState, command: Command, content: Conten
 
   switch (command.type) {
     case 'EndTurn':
-      return endTurn(state);
+      return endTurn(state, content);
     case 'SetStance': {
       const stack = state.stacks[command.stackId];
       if (!stack || stack.owner !== player.id) return { error: 'You do not own that stack' };
@@ -91,8 +92,10 @@ export function applyCommand(state: GameState, command: Command, content: Conten
     case 'Attack':
       return attack(state, command, content);
     case 'Move':
+      return withExplored(applyMove(state, command, content), content);
     case 'Split':
     case 'Merge':
+      return { error: `${command.type}: use Move (with unitIds to split; moving onto a friendly stack merges)` };
     case 'SetProduction':
     case 'Explore':
       return { error: `${command.type} is not implemented yet` };
@@ -123,7 +126,11 @@ export function replay(state: GameState, commands: readonly Command[], content: 
   return s;
 }
 
-function endTurn(state: GameState): CommandResult {
+function withExplored(result: CommandResult, content: ContentPack): CommandResult {
+  return 'error' in result ? result : { ...result, state: refreshExplored(result.state, content) };
+}
+
+function endTurn(state: GameState, content: ContentPack): CommandResult {
   const n = state.players.length;
   let next = state.currentPlayer;
   let turn = state.turn;
@@ -132,7 +139,8 @@ function endTurn(state: GameState): CommandResult {
     if (next === 0) turn++;
     if (!state.players[next]!.eliminated) break;
   }
-  const s = { ...state, currentPlayer: next, turn };
+  const player = state.players[next]!.id;
+  const s = restoreMovement({ ...state, currentPlayer: next, turn }, content, player, RULES.retreatMovePenaltyPct);
   return { state: s, events: [{ kind: 'turn-started', playerId: s.players[next]!.id, turn }] };
 }
 

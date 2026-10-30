@@ -71,7 +71,15 @@ export type Command =
       withdrawBelow?: number;
     }
   // Later milestones.
-  | { type: 'Move'; playerId: PlayerId; stackId: string; path: Hex[] }
+  | {
+      type: 'Move';
+      playerId: PlayerId;
+      stackId: string;
+      /** Hexes to enter in order, not including the start. */
+      path: Hex[];
+      /** Move only these units, splitting them off; default the whole stack. */
+      unitIds?: string[];
+    }
   | { type: 'Split'; playerId: PlayerId; stackId: string; unitIds: string[] }
   | { type: 'Merge'; playerId: PlayerId; stackId: string; intoStackId: string }
   | { type: 'SetProduction'; playerId: PlayerId; siteId: string; unitTypeId: string | null }
@@ -89,6 +97,19 @@ export interface BattleReport {
   events: BattleEvent[];
 }
 
-export type GameEvent = BattleReport | { kind: 'turn-started'; playerId: PlayerId; turn: number };
+export interface MoveReport {
+  kind: 'moved';
+  /** The stack that moved (a new id when units split off). */
+  stackId: string;
+  from: Hex;
+  /** Hexes entered, in order. */
+  path: Hex[];
+  /** Why the move ended before the end of the requested path. */
+  stopped?: 'movement' | 'spotted' | 'blocked';
+  /** The friendly stack it joined at the end, if any. */
+  mergedInto?: string;
+}
+
+export type GameEvent = BattleReport | MoveReport | { kind: 'turn-started'; playerId: PlayerId; turn: number };
 
 export type CommandResult = { state: GameState; events: GameEvent[] } | { error: string };
