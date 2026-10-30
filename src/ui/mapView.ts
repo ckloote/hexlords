@@ -13,6 +13,11 @@ import type { BannerShape, Theme } from './theme';
 
 const flat = (pts: Point[]) => pts.flatMap((p) => [p.x, p.y]);
 
+/** Empties a redrawn layer, destroying what it held so Graphics and Text textures are freed. */
+function clear(layer: Container): void {
+  for (const child of layer.removeChildren()) child.destroy({ children: true });
+}
+
 export interface Selection {
   stackId: string;
   reach: Reach;
@@ -44,7 +49,7 @@ export class MapView {
 
   /** Draws the static layers (terrain, roads, crossings, cities). Call once per map. */
   drawMap(view: PlayerView): void {
-    this.terrain.removeChildren();
+    clear(this.terrain);
     const ground = new Graphics();
     const grid = new Graphics();
     for (const h of allHexes(view.map)) {
@@ -115,7 +120,7 @@ export class MapView {
 
   /** Cities change hands, tier, and production during play, so they are redrawn with the state. */
   private drawCities(view: PlayerView, highlight?: Hex): void {
-    this.cities.removeChildren();
+    clear(this.cities);
     const layer = this.cities;
     for (const site of view.map.sites) {
       const c = hexToPixel(site.pos);
@@ -154,13 +159,13 @@ export class MapView {
       if (!visible.has(hexKey(h))) this.fog.poly(flat(hexCorners(hexToPixel(h)))).fill({ color: '#15171B', alpha: 0.28 });
     }
     this.drawOverlay(selection);
-    this.stacks.removeChildren();
+    clear(this.stacks);
     for (const stack of Object.values(view.stacks)) this.stacks.addChild(this.drawStack(view, stack, stack.id === selection?.stackId));
     this.drawPlan(plan);
   }
 
   private drawPlan(plan: Plan | null): void {
-    this.plan.removeChildren();
+    clear(this.plan);
     if (!plan) return;
     const g = new Graphics();
     const color = this.theme.ui.path;

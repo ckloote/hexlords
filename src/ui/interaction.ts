@@ -318,6 +318,8 @@ export function settle(step: UiState, events: GameEvent[], error: string | null,
     return there ? ui({ kind: 'selected', stackId: there.id, split: [] }, note) : ui({ kind: 'idle' }, note);
   }
   if (nextCapture) return ui({ kind: 'capture', siteId: nextCapture.siteId }, error ?? routesNote);
+  // A rejected build or capture choice keeps its panel open, with the reason.
+  if (error && (mode.kind === 'city' || mode.kind === 'capture')) return ui(mode, error);
   if (error) {
     const stackId = 'stackId' in mode ? mode.stackId : null;
     const moved = [...events].reverse().find((e) => e.kind === 'moved');

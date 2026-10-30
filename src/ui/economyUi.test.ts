@@ -133,6 +133,14 @@ describe('cities and captures in play', () => {
     expect(game.state.cities.site4!.production).toBeNull();
   });
 
+  it('keeps the city panel open when a build is rejected', () => {
+    const game = new Game(demoGame(), fantasy);
+    const ui = play(game, [{ kind: 'tap', hex: STONEBRIDGE }, { kind: 'build', unitTypeId: 'griffins' }]);
+    expect(ui.mode).toEqual({ kind: 'city', siteId: 'site4' });
+    expect(ui.message).toMatch(/cannot build/);
+    expect(game.state.cities.site4!.production).toBeNull();
+  });
+
   it('asks what to do with a captured city before anything else', () => {
     const s = demoGame();
     // Put the griffins next to the orcs' empty Hollow Pine.
