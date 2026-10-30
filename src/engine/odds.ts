@@ -2,7 +2,7 @@
 // defender unit index, its hits). The odds preview, the AI, and in-battle
 // retreat checks all use this module. It matches docs/reference/combat_reference.py.
 
-import { choosePursuer, type Fighter, fightOrder, hitChance, isCleanBreak } from './fight';
+import { choosePursuer, type Fighter, fightOrder, hitChance, isCleanBreak, pursuitSurvival } from './fight';
 
 export interface RetreatThresholds {
   /** Attacker withdraws when its win chance drops below this, checked after each death. */
@@ -103,23 +103,29 @@ export function computeOdds(
     return v;
   }
 
-  function attackerWithdraws(i: number, ha: number, j: number): Float64Array {
-    const v = terminal(WITHDRAW, i, j);
-    const pursuer = D[j + choosePursuer(D.slice(j))]!;
-    if (!isCleanBreak(A.slice(i), pursuer) && ha === 1) {
-      v[HEAD + i] = 1 - hitChance(pursuer.strength, A[i]!.strength);
+  /**
+   * Terminal vector for a withdrawal with pursuit applied. `withdrawing` and
+   * `pursuers` are the surviving units in fight order; `base` is the slot of
+   * the first withdrawing survivor in the vector.
+   */
+  function withdrawal(
+    v: Float64Array,
+    withdrawing: Fighter[],
+    frontHits: number,
+    pursuers: Fighter[],
+    base: number,
+  ): Float64Array {
+    const pursuer = pursuers[choosePursuer(pursuers)]!;
+    if (!isCleanBreak(withdrawing, pursuer)) {
+      pursuitSurvival(pursuer, withdrawing, frontHits).forEach((s, k) => (v[base + k] = s));
     }
     return v;
   }
 
-  function defenderWithdraws(i: number, j: number, hd: number): Float64Array {
-    const v = terminal(DEF_WITHDRAW, i, j);
-    const pursuer = A[i + choosePursuer(A.slice(i))]!;
-    if (!isCleanBreak(D.slice(j), pursuer) && hd === 1) {
-      v[HEAD + nA + j] = 1 - hitChance(pursuer.strength, D[j]!.strength);
-    }
-    return v;
-  }
+  const attackerWithdraws = (i: number, ha: number, j: number) =>
+    withdrawal(terminal(WITHDRAW, i, j), A.slice(i), ha, D.slice(j), HEAD + i);
+  const defenderWithdraws = (i: number, j: number, hd: number) =>
+    withdrawal(terminal(DEF_WITHDRAW, i, j), D.slice(j), hd, A.slice(i), HEAD + nA + j);
 
   function next(i: number, ha: number, j: number, hd: number, afterDeath: boolean): Float64Array {
     if (afterDeath && i < nA && j < nD) {

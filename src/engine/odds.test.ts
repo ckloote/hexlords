@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Fighter } from './fight';
+import { choosePursuer, pursuitSurvival } from './fight';
 import { computeOdds } from './odds';
 import { gravelmaw } from './test-fixtures';
 
@@ -126,3 +127,49 @@ describe('computeOdds: survival and invariants', () => {
     expect(computeOdds([], same(4, 2, 1)).destroyed).toBe(1);
   });
 });
+
+describe('pursuit', () => {
+  const two = { strength: 4, hits: 2, move: 12, pursuitStrikes: 2 };
+
+  it('one strike kills only a 1-hit front unit', () => {
+    expect(pursuitSurvival(f(4, 2), [f(4, 1), f(4, 2)], 1)).toEqual([0.5, 1]);
+    expect(pursuitSurvival(f(4, 2), [f(4, 2), f(4, 2)], 2)).toEqual([1, 1]);
+  });
+
+  it('two strikes: the second can finish a unit the first wounded', () => {
+    // Front at 2 hits dies only if both strikes land: 0.25.
+    expect(pursuitSurvival(two, [f(4, 2), f(4, 2)], 2)).toEqual([0.75, 1]);
+  });
+
+  it('two strikes: after a kill the second strike moves to the next unit', () => {
+    // Front (1 hit) survives only if both miss: 0.25. The next 1-hit unit dies only if both land: 0.25.
+    expect(pursuitSurvival(two, [f(4, 1), f(4, 1)], 1)).toEqual([0.25, 0.75]);
+    // A 2-hit second unit cannot die from the one remaining strike.
+    expect(pursuitSurvival(two, [f(4, 1), f(4, 2)], 1)).toEqual([0.25, 1]);
+  });
+
+  it('a wounded front unit uses its current hits', () => {
+    expect(pursuitSurvival(f(4, 2), [f(4, 2)], 1)).toEqual([0.5]);
+  });
+
+  it('pursuer ties go to more pursuit strikes, then Strength, then fight order', () => {
+    expect(choosePursuer([f(5, 2, 12), two])).toBe(1);
+    expect(choosePursuer([f(4, 2, 12), f(5, 2, 12)])).toBe(1);
+    expect(choosePursuer([f(5, 2, 12), f(5, 2, 12)])).toBe(0);
+    expect(choosePursuer([f(9, 2, 8), f(1, 2, 12)])).toBe(1);
+  });
+
+  it('computeOdds uses the two-strike pursuer', () => {
+    // One 1-hit attacker dies first; the attacker withdraws with two 1-hit units left.
+    const a = [f(1, 1, 8), f(4, 1, 8), f(4, 1, 8)];
+    const d1 = [f(9, 2, 12)];
+    const d2 = [{ strength: 9, hits: 2, move: 12, pursuitStrikes: 2 }];
+    const one = computeOdds(a, d1, { attackerThreshold: 0.99 });
+    const twice = computeOdds(a, d2, { attackerThreshold: 0.99 });
+    expect(twice.expectedAttackers).toBeLessThan(one.expectedAttackers);
+  });
+});
+
+function f(strength: number, hits: number, move = 8): Fighter {
+  return { strength, hits, move };
+}

@@ -127,6 +127,46 @@ describe('resolveBattle', () => {
     expect(outcomes).toEqual(new Set(['1:true', '1:false', '2:true', '2:false']));
   });
 
+  it('a two-strike pursuer resolves strikes one at a time against the weakest surviving unit', () => {
+    // Attackers withdraw after the Strength-1 unit dies; the pursuer strikes twice.
+    const seen = new Set<string>();
+    let rng = seedRng(7);
+    for (let k = 0; k < 400; k++) {
+      const attackers = [f(1, 1, 6), f(2, 1, 6), f(3, 2, 6)];
+      const defenders = [{ strength: 9, hits: 2, move: 12, pursuitStrikes: 2 }];
+      const r = resolveBattle(rng, attackers, defenders, { attackerThreshold: 0.99 });
+      rng = r.rng;
+      const strikes = r.events.filter((e) => e.kind === 'pursuit');
+      if (r.outcome !== 'withdraw' || r.attackerHits[0] !== 0) continue;
+      expect(strikes).toHaveLength(2);
+      const [s1, s2] = strikes as Extract<(typeof strikes)[number], { cleanBreak: false }>[];
+      expect(s1!.target).toBe(1);
+      // After a kill, the second strike moves on to the next weakest unit.
+      expect(s2!.target).toBe(s1!.killed ? 2 : 1);
+      seen.add(`${s1!.killed}:${s2!.hit}`);
+    }
+    expect(seen.size).toBe(4);
+  });
+
+  it('matches the exact odds with a two-strike pursuer', () => {
+    const attackers = [f(3, 2, 8), f(4, 1, 8), f(4, 2, 8)];
+    const defenders = [f(5, 2, 8), { strength: 3, hits: 2, move: 12, pursuitStrikes: 2 }, f(5, 2, 8)];
+    const odds = computeOdds(attackers, defenders, { attackerThreshold: 0.5 });
+    expect(odds.withdraw).toBeGreaterThan(0.2);
+    const n = 20000;
+    let rng = seedRng('two-strikes');
+    const alive = [0, 0, 0];
+    let withdrawals = 0;
+    for (let k = 0; k < n; k++) {
+      const r = resolveBattle(rng, attackers, defenders, { attackerThreshold: 0.5 });
+      rng = r.rng;
+      if (r.outcome === 'withdraw') withdrawals++;
+      r.attackerHits.forEach((h, u) => (alive[u]! += h > 0 ? 1 : 0));
+    }
+    expect(Math.abs(withdrawals / n - odds.withdraw)).toBeLessThan(0.015);
+    alive.forEach((a, u) => expect(Math.abs(a / n - odds.attackerSurvival[u]!)).toBeLessThan(0.015));
+  });
+
   it('a defender on fall-back can withdraw and be pursued', () => {
     let rng = seedRng(6);
     for (let k = 0; k < 200; k++) {

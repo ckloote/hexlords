@@ -6,6 +6,8 @@ export interface Fighter {
   strength: number;
   hits: number;
   move: number;
+  /** Strikes when pursuing; default 1. */
+  pursuitStrikes?: number;
 }
 
 /**
@@ -27,14 +29,49 @@ export function hitChance(a: number, d: number): number {
   return a / (a + d);
 }
 
-/** Index of the pursuer among `candidates`: fastest, ties to the strongest, then the first listed. */
+export const strikesOf = (f: Fighter): number => f.pursuitStrikes ?? 1;
+
+/**
+ * Index of the pursuer among `candidates`: fastest; ties go to more pursuit
+ * strikes, then the strongest, then the first listed.
+ */
 export function choosePursuer(candidates: readonly Fighter[]): number {
   let best = 0;
   candidates.forEach((f, k) => {
     const b = candidates[best]!;
-    if (f.move > b.move || (f.move === b.move && f.strength > b.strength)) best = k;
+    const cmp = f.move - b.move || strikesOf(f) - strikesOf(b) || f.strength - b.strength;
+    if (cmp > 0) best = k;
   });
   return best;
+}
+
+/**
+ * Survival chance of each withdrawing unit after the pursuer's strikes.
+ * `withdrawing` is in fight order and `frontHits` is the front unit's remaining
+ * hits. Strikes resolve one at a time against the weakest surviving unit, so a
+ * later strike can finish a unit an earlier one wounded. Ignores clean breaks;
+ * callers check isCleanBreak first.
+ */
+export function pursuitSurvival(pursuer: Fighter, withdrawing: readonly Fighter[], frontHits: number): number[] {
+  const n = withdrawing.length;
+  // Distribution over (front index, its hits).
+  let states = [{ idx: 0, hits: frontHits, p: 1 }];
+  for (let s = 0; s < strikesOf(pursuer); s++) {
+    const next: typeof states = [];
+    for (const st of states) {
+      if (st.idx >= n) {
+        next.push(st);
+        continue;
+      }
+      const q = hitChance(pursuer.strength, withdrawing[st.idx]!.strength);
+      next.push({ ...st, p: st.p * (1 - q) });
+      if (st.hits > 1) next.push({ idx: st.idx, hits: st.hits - 1, p: st.p * q });
+      else next.push({ idx: st.idx + 1, hits: withdrawing[st.idx + 1]?.hits ?? 0, p: st.p * q });
+    }
+    states = next;
+  }
+  // Unit k is dead exactly when the front has moved past it.
+  return withdrawing.map((_, k) => states.reduce((sum, st) => sum + (st.idx <= k ? st.p : 0), 0));
 }
 
 /** Clean break: every retreating unit is at least as fast as the pursuer. */

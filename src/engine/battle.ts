@@ -2,7 +2,7 @@
 // pursuit rules as the exact odds, and the exact Hold win probability for
 // in-battle retreat checks, drawing every roll from the seeded RNG.
 
-import { choosePursuer, type Fighter, hitChance, isCleanBreak } from './fight';
+import { choosePursuer, type Fighter, hitChance, isCleanBreak, strikesOf } from './fight';
 import { createBattleModel, type RetreatThresholds } from './odds';
 import { nextFloat, type RngState } from './rng';
 import type { Side } from './modifiers';
@@ -47,7 +47,10 @@ export function resolveBattle(
     return v;
   };
 
-  /** The retreating side's front unit takes one strike from the winner's fastest unit. */
+  /**
+   * The winner's fastest unit strikes the retreating side's weakest surviving
+   * unit, once per pursuit strike, moving on to the next unit after a kill.
+   */
   function pursue(side: Side) {
     const [own, ownHits, ownOrder, ownFront, foe, foeOrder, foeFront] =
       side === 'attacker'
@@ -59,18 +62,22 @@ export function resolveBattle(
       events.push({ kind: 'pursuit', side, cleanBreak: true });
       return;
     }
-    const hit = roll() < hitChance(pursuer.strength, own[ownFront]!.strength);
-    if (hit) ownHits[ownFront]!--;
-    const killed = ownHits[ownFront] === 0;
-    events.push({
-      kind: 'pursuit',
-      side,
-      cleanBreak: false,
-      pursuer: foeOrder[p]!,
-      target: ownOrder[ownFront]!,
-      hit,
-      killed,
-    });
+    let front = ownFront;
+    for (let s = 0; s < strikesOf(pursuer) && front < own.length; s++) {
+      const hit = roll() < hitChance(pursuer.strength, own[front]!.strength);
+      if (hit) ownHits[front]!--;
+      const killed = ownHits[front] === 0;
+      events.push({
+        kind: 'pursuit',
+        side,
+        cleanBreak: false,
+        pursuer: foeOrder[p]!,
+        target: ownOrder[front]!,
+        hit,
+        killed,
+      });
+      if (killed) front++;
+    }
   }
 
   while (outcome === undefined) {

@@ -83,7 +83,9 @@ export function battleModifiers(
         .filter((l) => l.side === side && (!l.unitIds || l.unitIds.includes(u.id)))
         .reduce((sum, l) => sum + l.pct, 0);
       const pct = Math.min(RULES.maxBonusPct, Math.max(RULES.minBonusPct, raw));
-      return { id: u.id, strength: effectiveStrength(u.type.strength, pct), hits: u.hits, move: u.type.move, pct };
+      const f: ModifiedFighter = { id: u.id, strength: effectiveStrength(u.type.strength, pct), hits: u.hits, move: u.type.move, pct };
+      if (u.type.pursuitStrikes !== undefined) f.pursuitStrikes = u.type.pursuitStrikes;
+      return f;
     });
 
   return { lines, attackers: apply('attacker', attackers), defenders: apply('defender', defenders) };
