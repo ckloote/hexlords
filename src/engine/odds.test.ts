@@ -75,6 +75,30 @@ describe('computeOdds: Gravelmaw', () => {
   }
 });
 
+describe('computeOdds: field battles with a defender on Fall back', () => {
+  // [name, attackers, defenders, attacker threshold, defender threshold,
+  //  win, defender withdraws, attacker withdraws, destroyed, attackers alive, defenders alive]
+  const rows: [string, Fighter[], Fighter[], number | undefined, number, number, number, number, number, number, number][] = [
+    ['3 cavalry + 2 infantry vs 5 infantry on hills, Fall back 30%', [...same(4, 2, 3, 12), ...same(4, 2, 2)], same(5, 2, 5),
+      undefined, 0.3, 0.0931, 0.2832, 0, 0.6237, 1.122, 1.985],
+    ['4 infantry vs 4 cavalry, Fall back 30% (clean break)', same(4, 2, 4), same(4, 2, 4, 12),
+      undefined, 0.3, 0.0978, 0.533, 0, 0.3693, 1.929, 1.955],
+    ['4 vs 4 infantry, both 30% (attacker checks first)', same(4, 2, 4), same(4, 2, 4),
+      0.3, 0.3, 0.0264, 0.4736, 0.4736, 0.0264, 2.846, 2.846],
+  ];
+  for (const [name, a, d, tA, tD, win, defWithdraw, withdraw, destroyed, ea, ed] of rows) {
+    it(name, () => {
+      const odds = computeOdds(a, d, { attackerThreshold: tA, defenderThreshold: tD });
+      expect(odds.win).toBeCloseTo(win, 4);
+      expect(odds.defenderWithdraw).toBeCloseTo(defWithdraw, 4);
+      expect(odds.withdraw).toBeCloseTo(withdraw, 4);
+      expect(odds.destroyed).toBeCloseTo(destroyed, 4);
+      expect(odds.expectedAttackers).toBeCloseTo(ea, 3);
+      expect(odds.expectedDefenders).toBeCloseTo(ed, 3);
+    });
+  }
+});
+
 describe('computeOdds: survival and invariants', () => {
   it('outcome probabilities sum to 1 and per-unit survival sums to expected survivors', () => {
     const { attackers, defenders } = gravelmaw();
