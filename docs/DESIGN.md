@@ -1,6 +1,6 @@
 # Hexlords — Design Doc
 
-Snapshot of the design doc as of 2026-10-29. This file is the source of truth for the build; update it when a rule changes.
+Snapshot of the design doc as of 2026-10-30. This file is the source of truth for the build; update it when a rule changes.
 
 ## Overview
 
@@ -150,6 +150,9 @@ A losing stack can retreat to save its survivors, but it pays with a pursuit str
 | Friendly city | 2 hits per unit per turn |
 | Temple | Full heal, plus a one-time +25% blessing for the next battle (once per stack per temple) |
 
+- Healing happens at the start of the owner's turn. "Did not move or fight" covers the whole round since the owner's last turn start, so a stack that was attacked during an enemy's turn does not heal in the field.
+- Units that regenerate (Trolls) heal at least 1 hit a turn, so they still heal 2 in a friendly city.
+
 ## Map and terrain
 
 The map is a hex grid sized by travel time, where roads, chokepoints, and cities with their own build lists decide where wars are fought.
@@ -210,8 +213,8 @@ Each city has its own build list, so a few cities, such as the only griffin roos
 
 - Map terrain and city ownership are visible to everyone; fog hides only units, including city garrisons. The scoreboard already shows each faction's income, so city ownership is public anyway.
 - Each unit has a vision radius, 2 hexes by default, and a stack on hills sees 1 hex farther. Vision is a content-pack field per unit type. Cities see 2 hexes for their owner.
-- City ownership is part of the game state, copied from the map's starting owners when the game begins. Until capture arrives in milestone 4, it simply never changes; the "friendly city" retreat tie-break and city vision read it from the state, never from the map file.
-- Maps are built in Tiled, a free editor with hex support and JSON export. Ruins, temples, and build lists are object properties, so maps stay pure data.
+- City ownership is part of the game state, copied from the map's starting owners when the game begins, along with each city's current tier. The "friendly city" retreat tie-break, city defense, income, and city vision read them from the state, never from the map file.
+- Maps are built in Tiled, a free editor with hex support and JSON export. Ruins, temples, and build lists are object properties, so maps stay pure data: a city's `builds` property lists the unit types it can produce, and the map's `turnLimit` and `domination` properties set its victory conditions.
 
 **Generated maps**
 
@@ -245,12 +248,16 @@ The battle math shows that combat value equals Strength × Hits. A Strength-8 un
 - Income comes from cities by tier (see Cities): 5, 10, or 20 gold per turn.
 - Each city builds one unit at a time from its own list: 1 turn for basic units, 2–3 for elites.
 - Gold and city build slots both limit growth, so more cities means more output, not just more money.
+- A unit is paid for when it is finished, at the start of its owner's turn. If the treasury is short, or the stack in the city already holds 8 units, the finished unit waits with its progress kept. A new unit joins the stack in the city or forms a new one there, and the city starts on another of the same type. Switching to a different unit loses the progress; stopping production is free.
+- Each player starts with gold set by the scenario (50 by default). The first round has no turn-start economy or healing, so every player starts on equal terms; income, upkeep, and production begin with each player's second turn.
 
 **Upkeep**
 
 - Each unit costs 12% of its base price per turn, rounded, minimum 1 (listed in the unit tables), so it costs its full price again about every 8 turns. Faction discounts lower the purchase price, not upkeep.
 - Heroes pay no upkeep; their cost is the hiring price.
 - When gold runs out, production stops first. Then the most expensive unit deserts each turn.
+- In detail: when income minus upkeep would leave the treasury below zero, it stays at 0 and one unit deserts that turn: the one with the highest upkeep, then the highest price, then the newest. Commanders pay no upkeep and never desert. Production then checks the treasury, so it waits until gold returns.
+- The start of each turn runs in this order: elimination, income and upkeep, desertion, production, healing, securing cities, the domination check, then movement is restored.
 
 **Capturing a city**
 
@@ -259,6 +266,14 @@ The battle math shows that combat value equals Strength × Hits. A Strength-8 un
 | Occupy | Keep the city and its income |
 | Pillage | Take several turns of its income now; the city drops a tier |
 | Raze | Destroy it so nobody can use it |
+
+- A stack takes a city when a move ends on it, or when it advances into it after winning a battle, if the city belongs to someone else or to nobody. Passing through an empty city without stopping does not take it.
+- Neutral cities start empty, so walking in takes them. Neutral garrisons may come with the map generator.
+- The player must choose Occupy, Pillage, or Raze before doing anything else, including ending the turn.
+- Pillage pays 3 turns of the city's income at its current tier, then drops it one tier. Pillaging a village razes it. (The Orc Horde's double pillage arrives with the faction traits.)
+- A razed city is rubble: no owner, income, defense, vision, or production, and nobody can take it again. It leaves the map's total income, so the domination target shrinks; a pillaged city counts at its new tier.
+- Taking a city stops its production and restarts its hold: it is not secured until its new owner has held it for a full round.
+- A defender that falls back into an empty city held by someone else occupies it, with no choice, since it is not that player's turn.
 
 ## Units and factions
 
@@ -355,7 +370,7 @@ Score is city income, a city counts only once it is secured, and a player wins b
 **Score**
 
 - Score = income from cities held: 5 per village, 10 per city, 20 per capital. Everyone sees it on the scoreboard, and the AI's leader bonus uses it.
-- A city is **secured** once held for a full round, from the start of one of your turns to the start of the next. Only secured cities count toward victory, which removes the last-mover advantage.
+- A city is **secured** once held for a full round, from the start of one of your turns to the start of the next. Only secured cities count toward victory, which removes the last-mover advantage. A city taken during your turn is first held at the start of your next turn and becomes secured at the start of the one after. Starting cities are secured from the first turn.
 
 **Ways to win**
 
@@ -367,6 +382,8 @@ Score is city income, a city counts only once it is secured, and a player wins b
 
 Example: a map with 4 capitals, 6 cities, and 8 villages has 180 total income, so domination needs 90. Everyone starts at 20.
 
+The domination target is rounded up. It is checked at the start of each turn, the first included, so a map must not give any player the domination share at the start. The small test map (30 total income, the dwarves start with 15) therefore sets domination to 70%. If the score and the army value are both tied when the last turn ends, the game is a draw.
+
 Each map sets its own turn limit. Start around 40 turns, about 40 minutes at a minute per human turn, then set it a little past the length of decisive AI-vs-AI games.
 
 **Last stand**
@@ -375,7 +392,7 @@ When a player's current income passes 50%, every player sees a warning. The AI's
 
 **Elimination and resigning**
 
-- A player who starts a turn with no cities is eliminated immediately, and their units disband. There is no exile period.
+- A player who starts a turn with no cities is eliminated immediately, and their units disband. There is no exile period. (A test board with no cities at all eliminates nobody.)
 - In multiplayer, a player who resigns leaves their cities neutral, garrisons included.
 
 **Victory conditions are map data**
@@ -476,7 +493,7 @@ Undo works until a move reveals something new: fog lifting, a battle, or enterin
 
 - **Danger overlay:** hexes visible enemies can reach next turn, reusing the AI's threat map computed from the player's own view.
 - **Income overlay:** city ownership and value.
-- **Turn summary:** at the start of each turn, battles against you, cities won or lost, units finished, and hero offers. In async multiplayer this is the "while you were away" screen.
+- **Turn summary:** at the start of each turn, battles against you, cities won or lost, units finished, production waiting, desertions, cities secured, wounds healed, and hero offers. In async multiplayer this is the "while you were away" screen.
 
 **Battles and AI turns**
 
