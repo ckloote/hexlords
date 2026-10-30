@@ -81,7 +81,8 @@ A and D are the effective Strengths of the two dueling units. Only the ratio mat
 
 - All bonuses are percentages: effective Strength = base × (1 + total bonus).
 - Bonuses add before multiplying, so forest +25% and leadership +25% make +50%.
-- Each side's total bonus is capped at +50%. Penalties, such as −25% attacking across a ford, never drop Strength below half.
+- Each unit's total bonus is capped at +50%; the cap applies per unit, since some bonuses (archers defending, a hero's sword) affect only one unit. Penalties, such as −25% attacking across a ford, never drop Strength below half.
+- A siege unit's −25% applies only to the enemy city's defense bonus and never takes it below zero: a city's +25% becomes +0%, a capital's +50% becomes +25%, and a village stays at +0%. Several siege units in one stack do not add up.
 - Modifiers are fixed when a battle starts. Stack-wide effects last the whole battle even if their unit dies.
 
 **Odds preview**
@@ -250,7 +251,7 @@ Six shared units cover every role, and each faction adds one trait and one uniqu
 | Archers | 3 | 2 | 8 | 15 | 1 | +25% when defending |
 | Infantry | 4 | 2 | 8 | 16 | 1 | Backbone of every army |
 | Cavalry | 4 | 2 | 12 | 20 | 2 | Pursuit, raids, clean breaks |
-| Siege engine | 2 | 2 | 6 | 20 | 2 | Its stack cuts the enemy city bonus by 25% |
+| Siege engine | 2 | 2 | 6 | 20 | 2 | Its stack cuts the enemy city bonus by 25 points, never below 0 |
 | Griffins | 5 | 2 | 16 | 30 | 3 | Flying; only a few cities build them |
 
 Dragons (Strength 8, 3 hits, flying) are never built. They join only as allies from ruins.
